@@ -1,0 +1,3 @@
+[submodule "lebconfig"]
+	path = lebconfig
+	url = git@github.com:Lebirun/lebconfig.git

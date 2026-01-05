@@ -8,34 +8,61 @@ struct cu_cmd {
 };
 
 static const struct cu_cmd cu_cmds[] = {
+#ifdef CONFIG_CMD_ECHO
     {"echo", cmd_echo},
+#endif
+#ifdef CONFIG_CMD_PWD
     {"pwd", cmd_pwd},
+#endif
+#ifdef CONFIG_CMD_LS
     {"ls", cmd_ls},
+#endif
+#ifdef CONFIG_CMD_CAT
     {"cat", cmd_cat},
+#endif
+#ifdef CONFIG_CMD_TOUCH
     {"touch", cmd_touch},
+#endif
+#ifdef CONFIG_CMD_MKDIR
     {"mkdir", cmd_mkdir},
+#endif
+#ifdef CONFIG_CMD_RM
     {"rm", cmd_rm},
+#endif
+#ifdef CONFIG_CMD_WRITE
     {"write", cmd_write},
+#endif
+#ifdef CONFIG_CMD_TICKS
     {"ticks", cmd_ticks},
+#endif
+    {NULL, NULL}
 };
 
-#define CU_CMD_COUNT (sizeof(cu_cmds) / sizeof(cu_cmds[0]))
-
-static unsigned int cu_hash(const char *s) {
-    unsigned int h = 5381;
-    while (*s) h = ((h << 5) + h) ^ (unsigned char)*s++;
-    return h;
-}
+#define CU_CMD_COUNT (sizeof(cu_cmds) / sizeof(cu_cmds[0]) - 1)
 
 static const struct cu_cmd *cu_find(const char *name) {
-    unsigned int h = cu_hash(name);
-    unsigned int idx = h % CU_CMD_COUNT;
-    
     for (unsigned int i = 0; i < CU_CMD_COUNT; i++) {
-        unsigned int probe = (idx + i) % CU_CMD_COUNT;
-        if (strcmp(cu_cmds[probe].name, name) == 0) return &cu_cmds[probe];
+        if (cu_cmds[i].name && strcmp(cu_cmds[i].name, name) == 0) {
+            return &cu_cmds[i];
+        }
     }
     return 0;
+}
+
+void cu_print_commands(void) {
+    if (CU_CMD_COUNT == 0) {
+        puts("(no commands enabled)");
+        return;
+    }
+    int first = 1;
+    for (unsigned int i = 0; i < CU_CMD_COUNT; i++) {
+        if (cu_cmds[i].name) {
+            if (!first) putchar(' ');
+            printf("%s", cu_cmds[i].name);
+            first = 0;
+        }
+    }
+    putchar('\n');
 }
 
 int cu_dispatch_as(const char *applet, int argc, char **argv) {

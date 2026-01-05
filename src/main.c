@@ -5,16 +5,31 @@
 static void cu_print_help(void) {
     puts("Lebirun Coreutils Help");
     puts("");
-    puts("Commands: echo pwd ls cat touch mkdir rm write ticks");
+    puts("Commands:");
+    cu_print_commands();
     puts("");
     puts("Command Options:");
+#ifdef CONFIG_CMD_ECHO
     puts("  echo [-n] [-e]    -n: no newline, -e: interpret escapes");
+#endif
+#ifdef CONFIG_CMD_LS
     puts("  ls [-a] [-l]      -a: show all, -l: long format");
+#endif
+#ifdef CONFIG_CMD_CAT
     puts("  cat [-n]          -n: show line numbers");
+#endif
+#ifdef CONFIG_CMD_RM
     puts("  rm [-f]           -f: force (ignore errors)");
+#endif
+#ifdef CONFIG_CMD_MKDIR
     puts("  mkdir [-p]        -p: create parents");
+#endif
+#ifdef CONFIG_CMD_TOUCH
     puts("  touch [-c]        -c: do not create");
+#endif
+#ifdef CONFIG_CMD_WRITE
     puts("  write [-a]        -a: append mode");
+#endif
     puts("");
     puts("Usage: lebcu <command> [args...]");
 }

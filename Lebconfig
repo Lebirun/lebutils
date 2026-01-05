@@ -1,0 +1,14 @@
+title "Lebirun Coreutils"
+desc "Coreutils made for Lebirun"
+
+subcategory "Software" {
+    item type=bool name="cat" default=enable id=cat alias="COMMAND_CAT" help="Enable the 'cat' command"
+    item type=bool name="echo" default=enable id=echo alias="COMMAND_ECHO" help="Enable the 'echo' command"
+    item type=bool name="ls" default=enable id=ls alias="COMMAND_LS" help="Enable the 'ls' command"
+    item type=bool name="mkdir" default=enable id=mkdir alias="COMMAND_MKDIR" help="Enable the 'mkdir' command"
+    item type=bool name="pwd" default=enable id=pwd alias="COMMAND_PWD" help="Enable the 'pwd' command"
+    item type=bool name="rm" default=enable id=rm alias="COMMAND_RM" help="Enable the 'rm' command"
+    item type=bool name="ticks" default=enable id=ticks alias="COMMAND_TICKS" help="Enable the 'ticks' command"
+    item type=bool name="touch" default=enable id=touch alias="COMMAND_TOUCH" help="Enable the 'touch' command"
+    item type=bool name="write" default=enable id=write alias="COMMAND_WRITE" help="Enable the 'write' command"
+}
