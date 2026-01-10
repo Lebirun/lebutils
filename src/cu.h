@@ -1,6 +1,19 @@
 #ifndef CU_H
 #define CU_H
 
+unsigned int getticks(void);
+
+int vfs_open(const char *path, int flags);
+int vfs_close_fd(int fd);
+int vfs_read_fd(int fd, void *buf, unsigned int count);
+int vfs_write_fd(int fd, const void *buf, unsigned int count);
+int vfs_readdir(int fd, char *name, unsigned int *type, unsigned int index);
+int vfs_stat(int fd, unsigned int *size, unsigned int *type);
+int vfs_create(const char *path, unsigned int perms);
+int vfs_mkdir(const char *path, unsigned int perms);
+int vfs_unlink(const char *path);
+int vfs_mounts(void);
+
 int cu_main(int argc, char **argv);
 int cu_dispatch(int argc, char **argv);
 int cu_dispatch_as(const char *applet, int argc, char **argv);

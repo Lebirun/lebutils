@@ -4,6 +4,7 @@
 #include "cu.h"
 
 #define O_RDONLY 0
+#define O_DIRECTORY 0200000
 
 int cmd_ls(int argc, char **argv) {
     int show_all = 0;
@@ -28,7 +29,10 @@ int cmd_ls(int argc, char **argv) {
         if (!getcwd(path, sizeof(path))) return 1;
     }
 
-    int fd = vfs_open(path, O_RDONLY);
+    int fd = vfs_open(path, O_RDONLY | O_DIRECTORY);
+    if (fd < 0) {
+        fd = vfs_open(path, O_RDONLY);
+    }
     if (fd < 0) {
         printf("ls: cannot access '%s'\n", path);
         return 1;

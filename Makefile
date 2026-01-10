@@ -4,13 +4,12 @@ LIBC = ../../libc
 LIBC_ABS = $(abspath $(LIBC))
 
 CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -m32 -O2 -nostdinc
-CPPFLAGS = -isystem $(LIBC)/include -I./src -I./src/cmd -I./src/wrap
+CPPFLAGS = -isystem $(LIBC)/leblibc/include -isystem $(LIBC)/leblibc/build-i386/obj/include -isystem $(LIBC)/leblibc/arch/i386 -isystem $(LIBC)/leblibc/arch/generic -I$(LIBC)/include -I$(LIBC)/src -I./src -I./src/cmd -I./src/wrap
 
-CRT1 = $(LIBC)/lib/crt1.o
-CRTI = $(LIBC)/lib/crti.o
-CRTN = $(LIBC)/lib/crtn.o
-LIBC_A = $(LIBC)/lib/libc.a
-LIBLEBIRUN = $(LIBC)/lib/liblebirun.a
+CRT1 = $(LIBC)/leblibc/build-i386/lib/crt1.o
+CRTI = $(LIBC)/leblibc/build-i386/lib/crti.o
+CRTN = $(LIBC)/leblibc/build-i386/lib/crtn.o
+LIBC_A = $(LIBC)/leblibc/build-i386/lib/libc.a
 
 LD_SCRIPT = $(LIBC)/user.ld
 
@@ -90,6 +89,9 @@ endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
+LEB_SYSCALLS_SRC = $(LIBC)/src/syscalls.c
+LEB_SYSCALLS_OBJ = $(SRCDIR)/syscalls_vfs.o
+
 BIN_TARGETS := lebcu
 ifeq ($(COMMAND_CAT),y)
 BIN_TARGETS += cat
@@ -141,11 +143,17 @@ clean-lebconfig:
 %.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-lebcu.bin: $(COREUTILS_OBJS) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A) $(LIBLEBIRUN)
-	$(CC) -nostdlib -static -Wl,-z,noexecstack -T $(LD_SCRIPT) -L$(LIBC)/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) -llebirun -lc $(CRTN) -lgcc
+$(LEB_VFS_OBJ): $(LEB_VFS_SRC)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-%.bin: $(SRCDIR)/wrap/wrap_%.o $(CRT1) $(CRTI) $(CRTN) $(LIBC_A) $(LIBLEBIRUN)
-	$(CC) -nostdlib -static -Wl,-z,noexecstack -T $(LD_SCRIPT) -L$(LIBC)/lib -o $@ $(CRT1) $(CRTI) $< -llebirun -lc $(CRTN) -lgcc
+$(LEB_SYSCALLS_OBJ): $(LEB_SYSCALLS_SRC)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(CC) -nostdlib -static -Wl,-z,noexecstack -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) -lc $(CRTN) -lgcc
+
+%.bin: $(SRCDIR)/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(CC) -nostdlib -static -Wl,-z,noexecstack -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 stage: all
 	mkdir -p $(SYSROOT_BIN)
