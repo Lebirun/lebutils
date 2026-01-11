@@ -11,4 +11,5 @@ subcategory "Software" {
     item type=bool name="ticks" default=enable id=ticks alias="COMMAND_TICKS" help="Enable the 'ticks' command"
     item type=bool name="touch" default=enable id=touch alias="COMMAND_TOUCH" help="Enable the 'touch' command"
     item type=bool name="write" default=enable id=write alias="COMMAND_WRITE" help="Enable the 'write' command"
+    item type=bool name="cres" default=enable id=cres alias="COMMAND_CRES" help="Enable the 'cres' command - allows changing screen resolution, refresh rate, and display settings in TTY mode"
 }

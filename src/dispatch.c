@@ -35,6 +35,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_TICKS
     {"ticks", cmd_ticks},
 #endif
+#ifdef CONFIG_CMD_CRES
+    {"cres", cmd_cres},
+#endif
     {NULL, NULL}
 };
 

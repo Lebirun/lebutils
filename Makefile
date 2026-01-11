@@ -49,6 +49,9 @@ endif
 ifeq ($(COMMAND_WRITE),y)
 CONFIG_DEFINES += -DCONFIG_CMD_WRITE
 endif
+ifeq ($(COMMAND_CRES),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CRES
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
@@ -86,6 +89,9 @@ endif
 ifeq ($(COMMAND_WRITE),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_write.c
 endif
+ifeq ($(COMMAND_CRES),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_cres.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -119,6 +125,9 @@ BIN_TARGETS += touch
 endif
 ifeq ($(COMMAND_WRITE),y)
 BIN_TARGETS += write
+endif
+ifeq ($(COMMAND_CRES),y)
+BIN_TARGETS += cres
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))

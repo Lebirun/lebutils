@@ -14,6 +14,12 @@ int vfs_mkdir(const char *path, unsigned int perms);
 int vfs_unlink(const char *path);
 int vfs_mounts(void);
 
+int fb_set_mode(unsigned int width, unsigned int height, unsigned int refresh_rate);
+int fb_getinfo(unsigned int *width, unsigned int *height, unsigned int *bpp,
+    unsigned int *font_height, unsigned int *rows, unsigned int *cursor_row,
+    unsigned int *font_width, unsigned int *cols);
+int fb_getcaps(unsigned int *words, unsigned int count);
+
 int cu_main(int argc, char **argv);
 int cu_dispatch(int argc, char **argv);
 int cu_dispatch_as(const char *applet, int argc, char **argv);
@@ -46,6 +52,9 @@ int cmd_write(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_TICKS
 int cmd_ticks(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_CRES
+int cmd_cres(int argc, char **argv);
 #endif
 
 const char *cu_basename(const char *path);
