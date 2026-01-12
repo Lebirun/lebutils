@@ -6,11 +6,9 @@
 int cmd_cres(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "Usage: cres <width> <height> [refresh_rate]\n");
-        fprintf(stderr, "       cres list\n");
-        fprintf(stderr, "       cres info\n");
-        fprintf(stderr, "\nNotes:\n");
-        fprintf(stderr, "- On some machines/emulators the driver can switch hardware modes (BGA).\n");
-        fprintf(stderr, "- Otherwise this clamps to the framebuffer provided at boot.\n");
+        fprintf(stderr, "cres list\n");
+        fprintf(stderr, "cres info\n");
+        fprintf(stderr, "Note that changing resolution (including custom resolutions) may not be supported on all hardware.\n");
         return 1;
     }
 
@@ -22,41 +20,69 @@ int cmd_cres(int argc, char **argv) {
             return 1;
         }
 
-        unsigned int w = caps[0];
-        unsigned int h = caps[1];
-        unsigned int bpp = caps[2];
-        unsigned int pitch = caps[3];
-        unsigned int cols = caps[4];
-        unsigned int rows = caps[5];
-        unsigned int font_w = caps[6];
-        unsigned int font_h = caps[7];
-        unsigned int hw_w = caps[8];
-        unsigned int hw_h = caps[9];
-        unsigned int hw_pitch = caps[10];
-        unsigned int vram = caps[11];
+        unsigned int cur_w = caps[0];
+        unsigned int cur_h = caps[1];
+        unsigned int font_w = caps[6] ? caps[6] : 8;
+        unsigned int font_h = caps[7] ? caps[7] : 16;
+        unsigned int hw_w = caps[8] ? caps[8] : cur_w;
+        unsigned int hw_h = caps[9] ? caps[9] : cur_h;
         unsigned int flags = caps[12];
-
-        printf("Current:  %ux%u @ %u bpp (pitch %u)  text %ux%u  font %ux%u\n",
-               w, h, bpp, pitch, cols, rows, font_w, font_h);
-
-        printf("Hardware: %ux%u (pitch %u)", hw_w, hw_h, hw_pitch);
-        if (vram) printf("  VRAM %u bytes", vram);
-        printf("\n");
+        unsigned int refresh = caps[13] ? caps[13] : 60;
 
         if (flags & 1u) {
-            printf("Hardware mode switching: supported (BGA)\n");
-            if (vram && bpp) {
-                unsigned int bytespp = bpp / 8u;
-                if (bytespp == 0) bytespp = 4;
-                unsigned int max_pixels = vram / bytespp;
-                printf("Max pixels (rough): %u (VRAM-limited, not a mode list)\n", max_pixels);
+            struct mode { unsigned int width; unsigned int height; } modes[128];
+            int mcount = 0;
+
+            unsigned int cand_h = hw_h;
+            int h_attempts = 0;
+            while (cand_h >= font_h && h_attempts < 16 && mcount < (int)(sizeof(modes)/sizeof(modes[0]))) {
+                unsigned int cand_w = hw_w;
+                int w_attempts = 0;
+                while (cand_w >= font_w && w_attempts < 16 && mcount < (int)(sizeof(modes)/sizeof(modes[0]))) {
+                    int res = fb_set_mode(cand_w, cand_h, refresh);
+                    if (res == 0) {
+                        int found = 0;
+                        for (int i = 0; i < mcount; i++) {
+                            if (modes[i].width == cand_w && modes[i].height == cand_h) {
+                                found = 1;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            modes[mcount].width = cand_w;
+                            modes[mcount].height = cand_h;
+                            mcount++;
+                        }
+                        fb_set_mode(cur_w, cur_h, refresh);
+                    }
+                    unsigned int delta = cand_w % font_w;
+                    if (delta == 0) delta = font_w;
+                    if (delta >= cand_w) break;
+                    cand_w -= delta;
+                    w_attempts++;
+                }
+                unsigned int delta_h = cand_h % font_h;
+                if (delta_h == 0) delta_h = font_h;
+                if (delta_h >= cand_h) break;
+                cand_h -= delta_h;
+                h_attempts++;
             }
-        } else {
-            printf("Hardware mode switching: not available\n");
-            printf("Limits: requests larger than boot framebuffer will fail\n");
+
+            if (mcount > 0) {
+                printf("Native supported resolutions:\n");
+                for (int i = 0; i < mcount; i++) {
+                    printf("%ux%u\n", modes[i].width, modes[i].height);
+                }
+                return 0;
+            }
+
+            printf("No native modes discovered via hardware probing. Showing fallback list:\n");
+            printf("640x480\n800x600\n1024x768\n1280x1024\n1920x1080\n");
+            return 0;
         }
 
-        printf("\nTry: cres <w> <h> [hz]\n");
+        printf("Hardware mode switching not supported on this device. Showing fallback list:\n");
+        printf("640x480\n800x600\n1024x768\n1280x1024\n1920x1080\n");
         return 0;
     }
 
@@ -102,12 +128,11 @@ int cmd_cres(int argc, char **argv) {
         }
     }
 
-    printf("Setting resolution to %ldx%ld @ %ldHz...\n", width, height, refresh_rate);
+    printf("Setting resolution to %ldx%ld @ %ldHz\n", width, height, refresh_rate);
     
     int result = fb_set_mode((unsigned int)width, (unsigned int)height, (unsigned int)refresh_rate);
     
     if (result == 0) {
-        printf("Resolution changed successfully.\n");
         return 0;
     } else if (result == -2) {
         fprintf(stderr, "Error: Resolution out of supported range\n");
