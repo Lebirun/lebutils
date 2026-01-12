@@ -7,11 +7,17 @@
 #define O_DIRECTORY 0200000
 
 int cmd_ls(int argc, char **argv) {
-    int show_all = 0;
-    int long_format = 0;
-    const char *arg = 0;
+    int show_all, long_format, i;
+    const char *arg;
+    char path[256];
+    int fd;
+    unsigned int size, type, entry_type, col;
 
-    for (int i = 1; i < argc; i++) {
+    show_all = 0;
+    long_format = 0;
+    arg = 0;
+
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             for (const char *p = argv[i] + 1; *p; p++) {
                 if (*p == 'a') show_all = 1;
@@ -22,14 +28,13 @@ int cmd_ls(int argc, char **argv) {
         }
     }
 
-    char path[256];
     if (arg && *arg) {
         if (cu_path_abs(arg, path, sizeof(path)) < 0) return 1;
     } else {
         if (!getcwd(path, sizeof(path))) return 1;
     }
 
-    int fd = vfs_open(path, O_RDONLY | O_DIRECTORY);
+    fd = vfs_open(path, O_RDONLY | O_DIRECTORY);
     if (fd < 0) {
         fd = vfs_open(path, O_RDONLY);
     }
@@ -38,8 +43,8 @@ int cmd_ls(int argc, char **argv) {
         return 1;
     }
 
-    unsigned int size = 0;
-    unsigned int type = 0;
+    size = 0;
+    type = 0;
     if (vfs_stat(fd, &size, &type) == 0) {
         if ((type & 0x02) == 0 && (type & 0x08) == 0) {
             printf("ls: '%s' is not a directory\n", path);
@@ -49,8 +54,8 @@ int cmd_ls(int argc, char **argv) {
     }
 
     char name[64];
-    unsigned int entry_type = 0;
-    int col = 0;
+    entry_type = 0;
+    col = 0;
     for (unsigned int i = 0; i < 1000; i++) {
         if (vfs_readdir(fd, name, &entry_type, i) < 0) break;
         if (!show_all && name[0] == '.') continue;

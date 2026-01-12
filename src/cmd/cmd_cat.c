@@ -9,16 +9,20 @@ static int show_line_numbers = 0;
 
 static int cat_one(const char *arg) {
     char path[256];
+    int fd, rd, line, at_line_start;
+    unsigned int size, type;
+    char buf[256];
+
     if (cu_path_abs(arg, path, sizeof(path)) < 0) return 1;
 
-    int fd = vfs_open(path, O_RDONLY);
+    fd = vfs_open(path, O_RDONLY);
     if (fd < 0) {
         printf("cat: cannot open '%s'\n", path);
         return 1;
     }
 
-    unsigned int size = 0;
-    unsigned int type = 0;
+    size = 0;
+    type = 0;
     if (vfs_stat(fd, &size, &type) < 0) {
         printf("cat: cannot stat '%s'\n", path);
         vfs_close_fd(fd);
@@ -30,10 +34,8 @@ static int cat_one(const char *arg) {
         return 1;
     }
 
-    char buf[256];
-    int rd;
-    int line = 1;
-    int at_line_start = 1;
+    line = 1;
+    at_line_start = 1;
     while ((rd = vfs_read_fd(fd, buf, sizeof(buf))) > 0) {
         if (show_line_numbers) {
             for (int i = 0; i < rd; i++) {
@@ -60,10 +62,12 @@ static int cat_one(const char *arg) {
 }
 
 int cmd_cat(int argc, char **argv) {
-    show_line_numbers = 0;
-    int file_count = 0;
+    int file_count, i;
 
-    for (int i = 1; i < argc; i++) {
+    show_line_numbers = 0;
+    file_count = 0;
+
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             for (const char *p = argv[i] + 1; *p; p++) {
                 if (*p == 'n') show_line_numbers = 1;
@@ -79,7 +83,7 @@ int cmd_cat(int argc, char **argv) {
     }
 
     int rc = 0;
-    for (int i = 1; i < argc; i++) {
+    for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] != '-') {
             if (cat_one(argv[i]) != 0) rc = 1;
         }

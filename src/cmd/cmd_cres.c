@@ -1,151 +1,201 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "cu.h"
 
+#define FB_CAPS_WORDS 1056
+#define MAX_DIMENSION 16384u
+#define MAX_REFRESH_RATE 200u
+
+enum {
+    CAP_CUR_WIDTH = 0,
+    CAP_CUR_HEIGHT,
+    CAP_BPP,
+    CAP_PITCH,
+    CAP_COLS,
+    CAP_ROWS,
+    CAP_FONT_WIDTH,
+    CAP_FONT_HEIGHT,
+    CAP_MAX_WIDTH,
+    CAP_MAX_HEIGHT,
+    CAP_MAX_PITCH,
+    CAP_VRAM_BYTES,
+    CAP_FLAGS,
+    CAP_REFRESH_RATE,
+    CAP_MODE_COUNT,
+    CAP_RESERVED,
+    CAP_FIRST_MODE = 16,
+};
+
+static void print_usage(void) {
+    printf("Usage: cres <width> <height> [refresh_rate]\n");
+    printf("       cres list\n");
+    printf("       cres info\n");
+    printf("cres list reports the hardware-supported modes without switching any mode.\n");
+}
+
+static int parse_positive(const char *input, const char *label, unsigned int limit, unsigned int *out) {
+    char *endptr = NULL;
+    long value = strtol(input, &endptr, 10);
+    if (*input == '\0' || *endptr != '\0' || value <= 0 || (unsigned long)value > limit) {
+        fprintf(stderr, "Invalid %s '%s' (must be 1..%u)\n", label, input, limit);
+        return -1;
+    }
+    *out = (unsigned int)value;
+    return 0;
+}
+
+static int run_info(void) {
+    unsigned int caps[64];
+    unsigned int font_w, font_h, hw_w, hw_h;
+    int rc;
+    const char *hw_switch;
+
+    memset(caps, 0, sizeof(caps));
+    rc = fb_getcaps(caps, sizeof(caps) / sizeof(caps[0]));
+    if (rc != 0) {
+        fprintf(stderr, "Failed to query framebuffer caps (%d)\n", rc);
+        return 1;
+    }
+
+    font_w = caps[CAP_FONT_WIDTH] ? caps[CAP_FONT_WIDTH] : 8;
+    font_h = caps[CAP_FONT_HEIGHT] ? caps[CAP_FONT_HEIGHT] : 16;
+    hw_w = caps[CAP_MAX_WIDTH] ? caps[CAP_MAX_WIDTH] : caps[CAP_CUR_WIDTH];
+    hw_h = caps[CAP_MAX_HEIGHT] ? caps[CAP_MAX_HEIGHT] : caps[CAP_CUR_HEIGHT];
+    hw_switch = (caps[CAP_FLAGS] & 1u) ? "supported (BGA/VESA)" : "not supported";
+
+    printf("Current resolution   : %ux%u @ %uHz\n", caps[CAP_CUR_WIDTH], caps[CAP_CUR_HEIGHT], caps[CAP_REFRESH_RATE]);
+    printf("Text layout          : %u cols x %u rows (font %ux%u)\n", caps[CAP_COLS], caps[CAP_ROWS], font_w, font_h);
+    printf("Hardware ceiling     : %ux%u (pitch %u bytes)\n", hw_w, hw_h, caps[CAP_MAX_PITCH]);
+    printf("Framebuffer memory   : %u bytes\n", caps[CAP_VRAM_BYTES]);
+    printf("Hardware mode switch : %s\n", hw_switch);
+    printf("Reported mode count  : %u\n", caps[CAP_MODE_COUNT]);
+
+    return 0;
+}
+
+static int run_list(void) {
+    unsigned int caps[FB_CAPS_WORDS];
+    unsigned int cap_words, font_w, font_h, hw_w, hw_h;
+    unsigned int reported_modes, max_modes, cap_modes, printed, i, idx, mode_w, mode_h;
+    int rc;
+    const char *hw_switch;
+
+    memset(caps, 0, sizeof(caps));
+    cap_words = sizeof(caps) / sizeof(caps[0]);
+    rc = fb_getcaps(caps, cap_words);
+    if (rc != 0) {
+        fprintf(stderr, "Failed to query framebuffer caps (%d)\n", rc);
+        return 1;
+    }
+
+    font_w = caps[CAP_FONT_WIDTH] ? caps[CAP_FONT_WIDTH] : 8;
+    font_h = caps[CAP_FONT_HEIGHT] ? caps[CAP_FONT_HEIGHT] : 16;
+    hw_w = caps[CAP_MAX_WIDTH] ? caps[CAP_MAX_WIDTH] : caps[CAP_CUR_WIDTH];
+    hw_h = caps[CAP_MAX_HEIGHT] ? caps[CAP_MAX_HEIGHT] : caps[CAP_CUR_HEIGHT];
+    hw_switch = (caps[CAP_FLAGS] & 1u) ? "supported (BGA/VESA)" : "not supported";
+
+    printf("Current resolution   : %ux%u @ %uHz\n", caps[CAP_CUR_WIDTH], caps[CAP_CUR_HEIGHT], caps[CAP_REFRESH_RATE]);
+    printf("Hardware ceiling     : %ux%u\n", hw_w, hw_h);
+    printf("Text layout          : %u cols x %u rows (font %ux%u)\n", caps[CAP_COLS], caps[CAP_ROWS], font_w, font_h);
+    printf("Hardware mode switching: %s\n", hw_switch);
+
+    reported_modes = caps[CAP_MODE_COUNT];
+    max_modes = (cap_words - CAP_FIRST_MODE) / 2;
+    if (reported_modes == 0) {
+        printf("Mode list: unavailable\n");
+        return 0;
+    }
+
+    cap_modes = reported_modes;
+    if (cap_modes > max_modes) {
+        cap_modes = max_modes;
+    }
+    printf("Mode list (%u entries):\n", reported_modes);
+    printed = 0;
+    for (i = 0; i < cap_modes; i++) {
+        idx = CAP_FIRST_MODE + i * 2;
+        mode_w = caps[idx];
+        mode_h = caps[idx + 1];
+        if (mode_w == 0 || mode_h == 0) {
+            continue;
+        }
+        printf("  %ux%u\n", mode_w, mode_h);
+        printed++;
+    }
+    if (printed == 0) {
+        printf("  (no valid entries reported)\n");
+    }
+    if (reported_modes > max_modes) {
+        printf("  (list truncated to %u entries because of buffer size)\n", max_modes);
+    }
+
+    return 0;
+}
+
 int cmd_cres(int argc, char **argv) {
+    unsigned int width, height, refresh;
+    int result;
+
     if (argc < 2) {
-        fprintf(stderr, "Usage: cres <width> <height> [refresh_rate]\n");
-        fprintf(stderr, "cres list\n");
-        fprintf(stderr, "cres info\n");
-        fprintf(stderr, "Note that changing resolution (including custom resolutions) may not be supported on all hardware.\n");
+        print_usage();
         return 1;
     }
 
     if (strcmp(argv[1], "list") == 0) {
-        unsigned int caps[16] = {0};
-        int rc = fb_getcaps(caps, 16);
-        if (rc != 0) {
-            fprintf(stderr, "Failed to query framebuffer caps (%d)\n", rc);
-            return 1;
-        }
-
-        unsigned int cur_w = caps[0];
-        unsigned int cur_h = caps[1];
-        unsigned int font_w = caps[6] ? caps[6] : 8;
-        unsigned int font_h = caps[7] ? caps[7] : 16;
-        unsigned int hw_w = caps[8] ? caps[8] : cur_w;
-        unsigned int hw_h = caps[9] ? caps[9] : cur_h;
-        unsigned int flags = caps[12];
-        unsigned int refresh = caps[13] ? caps[13] : 60;
-
-        if (flags & 1u) {
-            struct mode { unsigned int width; unsigned int height; } modes[128];
-            int mcount = 0;
-
-            unsigned int cand_h = hw_h;
-            int h_attempts = 0;
-            while (cand_h >= font_h && h_attempts < 16 && mcount < (int)(sizeof(modes)/sizeof(modes[0]))) {
-                unsigned int cand_w = hw_w;
-                int w_attempts = 0;
-                while (cand_w >= font_w && w_attempts < 16 && mcount < (int)(sizeof(modes)/sizeof(modes[0]))) {
-                    int res = fb_set_mode(cand_w, cand_h, refresh);
-                    if (res == 0) {
-                        int found = 0;
-                        for (int i = 0; i < mcount; i++) {
-                            if (modes[i].width == cand_w && modes[i].height == cand_h) {
-                                found = 1;
-                                break;
-                            }
-                        }
-                        if (!found) {
-                            modes[mcount].width = cand_w;
-                            modes[mcount].height = cand_h;
-                            mcount++;
-                        }
-                        fb_set_mode(cur_w, cur_h, refresh);
-                    }
-                    unsigned int delta = cand_w % font_w;
-                    if (delta == 0) delta = font_w;
-                    if (delta >= cand_w) break;
-                    cand_w -= delta;
-                    w_attempts++;
-                }
-                unsigned int delta_h = cand_h % font_h;
-                if (delta_h == 0) delta_h = font_h;
-                if (delta_h >= cand_h) break;
-                cand_h -= delta_h;
-                h_attempts++;
-            }
-
-            if (mcount > 0) {
-                printf("Native supported resolutions:\n");
-                for (int i = 0; i < mcount; i++) {
-                    printf("%ux%u\n", modes[i].width, modes[i].height);
-                }
-                return 0;
-            }
-
-            printf("No native modes discovered via hardware probing. Showing fallback list:\n");
-            printf("640x480\n800x600\n1024x768\n1280x1024\n1920x1080\n");
-            return 0;
-        }
-
-        printf("Hardware mode switching not supported on this device. Showing fallback list:\n");
-        printf("640x480\n800x600\n1024x768\n1280x1024\n1920x1080\n");
-        return 0;
+        return run_list();
     }
-
     if (strcmp(argv[1], "info") == 0) {
-        unsigned int caps[16] = {0};
-        int rc = fb_getcaps(caps, 16);
-        if (rc != 0) {
-            fprintf(stderr, "Failed to query framebuffer info (%d)\n", rc);
-            return 1;
-        }
-        printf("Resolution: %ux%u @ %u bpp\n", caps[0], caps[1], caps[2]);
-        printf("Pitch: %u (hw pitch %u)\n", caps[3], caps[10]);
-        printf("Text: %u rows x %u cols (font %ux%u)\n", caps[5], caps[4], caps[6], caps[7]);
-        printf("Hardware: %ux%u\n", caps[8], caps[9]);
-        printf("HW switch: %s\n", (caps[12] & 1u) ? "yes (BGA)" : "no");
-        return 0;
-    }
-
-    char *endptr;
-    long width = strtol(argv[1], &endptr, 10);
-    if (*endptr != '\0' || width <= 0 || width > 16384) {
-        fprintf(stderr, "Error: Invalid width '%s'\n", argv[1]);
-        return 1;
+        return run_info();
     }
 
     if (argc < 3) {
         fprintf(stderr, "Error: Height argument required\n");
+        print_usage();
         return 1;
     }
 
-    long height = strtol(argv[2], &endptr, 10);
-    if (*endptr != '\0' || height <= 0 || height > 16384) {
-        fprintf(stderr, "Error: Invalid height '%s'\n", argv[2]);
+    width = 0;
+    height = 0;
+    refresh = 60;
+
+    if (parse_positive(argv[1], "width", MAX_DIMENSION, &width) != 0) {
         return 1;
     }
-
-    long refresh_rate = 60;
+    if (parse_positive(argv[2], "height", MAX_DIMENSION, &height) != 0) {
+        return 1;
+    }
     if (argc >= 4) {
-        refresh_rate = strtol(argv[3], &endptr, 10);
-        if (*endptr != '\0' || refresh_rate <= 0 || refresh_rate > 200) {
-            fprintf(stderr, "Error: Invalid refresh rate '%s'\n", argv[3]);
+        if (parse_positive(argv[3], "refresh rate", MAX_REFRESH_RATE, &refresh) != 0) {
             return 1;
         }
     }
 
-    printf("Setting resolution to %ldx%ld @ %ldHz\n", width, height, refresh_rate);
-    
-    int result = fb_set_mode((unsigned int)width, (unsigned int)height, (unsigned int)refresh_rate);
-    
-    if (result == 0) {
-        return 0;
-    } else if (result == -2) {
-        fprintf(stderr, "Error: Resolution out of supported range\n");
-        return 1;
-    } else if (result == -3) {
-        fprintf(stderr, "Error: Framebuffer not initialized\n");
-        return 1;
-    } else if (result == -4) {
-        fprintf(stderr, "Error: Resolution exceeds physical framebuffer size\n");
-        fprintf(stderr, "Use 'cres list' to see limits\n");
-        return 1;
-    } else {
-        fprintf(stderr, "Error: Failed to change resolution (error code: %d)\n", result);
-        return 1;
+    printf("Setting resolution to %ux%u @ %uHz\n", width, height, refresh);
+    result = fb_set_mode(width, height, refresh);
+
+    switch (result) {
+        case 0:
+            return 0;
+        case -2:
+            fprintf(stderr, "Error: Resolution exceeds supported range\n");
+            return 1;
+        case -3:
+            fprintf(stderr, "Error: Framebuffer not initialized\n");
+            return 1;
+        case -4:
+            fprintf(stderr, "Error: Resolution exceeds physical framebuffer size\n");
+            fprintf(stderr, "Use 'cres list' to inspect supported modes\n");
+            return 1;
+        case -5:
+            fprintf(stderr, "Error: Not enough framebuffer memory for requested mode\n");
+            return 1;
+        case -6:
+            fprintf(stderr, "Error: Internal framebuffer state invalid\n");
+            return 1;
+        default:
+            fprintf(stderr, "Error: Failed to change resolution (error code: %d)\n", result);
+            return 1;
     }
 }

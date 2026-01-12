@@ -6,8 +6,15 @@
 #define O_RDONLY 0
 
 int cmd_write(int argc, char **argv) {
-    int append = 0;
-    int opt_idx = 1;
+    int append, opt_idx, fd, ret, written;
+    char path[256], text[1024];
+    int text_pos;
+    unsigned int size, type;
+    char buf[256];
+    int rd;
+
+    append = 0;
+    opt_idx = 1;
     
     while (opt_idx < argc && argv[opt_idx][0] == '-') {
         for (const char *p = argv[opt_idx] + 1; *p; p++) {
@@ -21,12 +28,9 @@ int cmd_write(int argc, char **argv) {
         return 1;
     }
 
-    const char *file_arg = argv[opt_idx];
-    char path[256];
-    if (cu_path_abs(file_arg, path, sizeof(path)) < 0) return 1;
+    if (cu_path_abs(argv[opt_idx], path, sizeof(path)) < 0) return 1;
 
-    char text[1024];
-    int text_pos = 0;
+    text_pos = 0;
     for (int i = opt_idx + 1; i < argc && text_pos < 1020; i++) {
         if (i > opt_idx + 1 && text_pos < 1020) text[text_pos++] = ' ';
         const char *p = argv[i];
@@ -34,9 +38,9 @@ int cmd_write(int argc, char **argv) {
     }
     text[text_pos] = '\0';
 
-    int fd = vfs_open(path, O_RDONLY);
+    fd = vfs_open(path, O_RDONLY);
     if (fd < 0) {
-        int ret = vfs_create(path, 0x06);
+        ret = vfs_create(path, 0x06);
         if (ret < 0) {
             printf("write: cannot create '%s'\n", path);
             return 1;
@@ -49,17 +53,17 @@ int cmd_write(int argc, char **argv) {
     }
 
     if (append) {
-        unsigned int size = 0, type = 0;
+        size = 0;
+        type = 0;
         vfs_stat(fd, &size, &type);
-        char buf[256];
         while (size > 0) {
-            int rd = vfs_read_fd(fd, buf, size > 256 ? 256 : size);
+            rd = vfs_read_fd(fd, buf, size > 256 ? 256 : size);
             if (rd <= 0) break;
             size -= (unsigned int)rd;
         }
     }
 
-    int written = vfs_write_fd(fd, text, (unsigned int)text_pos);
+    written = vfs_write_fd(fd, text, (unsigned int)text_pos);
     vfs_close_fd(fd);
 
     if (written < 0) {

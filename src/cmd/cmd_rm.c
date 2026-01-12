@@ -3,10 +3,13 @@
 #include "cu.h"
 
 int cmd_rm(int argc, char **argv) {
-    int force = 0;
-    int file_count = 0;
+    int force, file_count, i, ret, rc;
+    char path[256];
 
-    for (int i = 1; i < argc; i++) {
+    force = 0;
+    file_count = 0;
+
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             for (const char *p = argv[i] + 1; *p; p++) {
                 if (*p == 'f') force = 1;
@@ -22,17 +25,16 @@ int cmd_rm(int argc, char **argv) {
         return 1;
     }
 
-    int rc = 0;
-    for (int i = 1; i < argc; i++) {
+    rc = 0;
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') continue;
         
-        char path[256];
         if (cu_path_abs(argv[i], path, sizeof(path)) < 0) {
             if (!force) { rc = 1; }
             continue;
         }
 
-        int ret = vfs_unlink(path);
+        ret = vfs_unlink(path);
         if (ret < 0 && !force) {
             printf("rm: cannot remove '%s'\n", path);
             rc = 1;

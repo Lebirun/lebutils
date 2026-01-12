@@ -5,13 +5,13 @@
 
 static int mkdir_recursive(const char *path) {
     char tmp[256];
-    char *p = NULL;
-    size_t len;
-    
+    char *p;
+    size_t len, i;
+
     len = strlen(path);
     if (len >= sizeof(tmp)) return -1;
     
-    for (size_t i = 0; i <= len; i++) tmp[i] = path[i];
+    for (i = 0; i <= len; i++) tmp[i] = path[i];
     
     if (tmp[len - 1] == '/') tmp[len - 1] = '\0';
     
@@ -26,10 +26,13 @@ static int mkdir_recursive(const char *path) {
 }
 
 int cmd_mkdir(int argc, char **argv) {
-    int parents = 0;
-    int dir_count = 0;
+    int parents, dir_count, i, ret, rc;
+    char path[256];
 
-    for (int i = 1; i < argc; i++) {
+    parents = 0;
+    dir_count = 0;
+
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             for (const char *p = argv[i] + 1; *p; p++) {
                 if (*p == 'p') parents = 1;
@@ -44,17 +47,15 @@ int cmd_mkdir(int argc, char **argv) {
         return 1;
     }
 
-    int rc = 0;
-    for (int i = 1; i < argc; i++) {
+    rc = 0;
+    for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') continue;
         
-        char path[256];
         if (cu_path_abs(argv[i], path, sizeof(path)) < 0) {
             rc = 1;
             continue;
         }
 
-        int ret;
         if (parents) {
             ret = mkdir_recursive(path);
         } else {
