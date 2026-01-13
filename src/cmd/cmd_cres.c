@@ -50,7 +50,7 @@ static int run_info(void) {
     unsigned int caps[64];
     unsigned int font_w, font_h, hw_w, hw_h;
     int rc;
-    const char *hw_switch;
+    const char *driver_name;
 
     memset(caps, 0, sizeof(caps));
     rc = fb_getcaps(caps, sizeof(caps) / sizeof(caps[0]));
@@ -63,24 +63,25 @@ static int run_info(void) {
     font_h = caps[CAP_FONT_HEIGHT] ? caps[CAP_FONT_HEIGHT] : 16;
     hw_w = caps[CAP_MAX_WIDTH] ? caps[CAP_MAX_WIDTH] : caps[CAP_CUR_WIDTH];
     hw_h = caps[CAP_MAX_HEIGHT] ? caps[CAP_MAX_HEIGHT] : caps[CAP_CUR_HEIGHT];
-    hw_switch = (caps[CAP_FLAGS] & 1u) ? "supported (BGA/VESA)" : "not supported";
 
     printf("Current resolution   : %ux%u @ %uHz\n", caps[CAP_CUR_WIDTH], caps[CAP_CUR_HEIGHT], caps[CAP_REFRESH_RATE]);
     printf("Text layout          : %u cols x %u rows (font %ux%u)\n", caps[CAP_COLS], caps[CAP_ROWS], font_w, font_h);
     printf("Hardware ceiling     : %ux%u (pitch %u bytes)\n", hw_w, hw_h, caps[CAP_MAX_PITCH]);
     printf("Framebuffer memory   : %u bytes\n", caps[CAP_VRAM_BYTES]);
-    printf("Hardware mode switch : %s\n", hw_switch);
-    printf("Reported mode count  : %u\n", caps[CAP_MODE_COUNT]);
+    
+    if (caps[CAP_FLAGS] & 1u) {
+        driver_name = (caps[CAP_FLAGS] & 2u) ? "BGA" : "VESA/Generic";
+        printf("Graphics driver      : %s\n", driver_name);
+    }
 
     return 0;
 }
 
 static int run_list(void) {
     unsigned int caps[FB_CAPS_WORDS];
-    unsigned int cap_words, font_w, font_h, hw_w, hw_h;
+    unsigned int cap_words;
     unsigned int reported_modes, max_modes, cap_modes, printed, i, idx, mode_w, mode_h;
     int rc;
-    const char *hw_switch;
 
     memset(caps, 0, sizeof(caps));
     cap_words = sizeof(caps) / sizeof(caps[0]);
@@ -90,21 +91,17 @@ static int run_list(void) {
         return 1;
     }
 
-    font_w = caps[CAP_FONT_WIDTH] ? caps[CAP_FONT_WIDTH] : 8;
-    font_h = caps[CAP_FONT_HEIGHT] ? caps[CAP_FONT_HEIGHT] : 16;
-    hw_w = caps[CAP_MAX_WIDTH] ? caps[CAP_MAX_WIDTH] : caps[CAP_CUR_WIDTH];
-    hw_h = caps[CAP_MAX_HEIGHT] ? caps[CAP_MAX_HEIGHT] : caps[CAP_CUR_HEIGHT];
-    hw_switch = (caps[CAP_FLAGS] & 1u) ? "supported (BGA/VESA)" : "not supported";
-
-    printf("Current resolution   : %ux%u @ %uHz\n", caps[CAP_CUR_WIDTH], caps[CAP_CUR_HEIGHT], caps[CAP_REFRESH_RATE]);
-    printf("Hardware ceiling     : %ux%u\n", hw_w, hw_h);
-    printf("Text layout          : %u cols x %u rows (font %ux%u)\n", caps[CAP_COLS], caps[CAP_ROWS], font_w, font_h);
-    printf("Hardware mode switching: %s\n", hw_switch);
+    if (!(caps[CAP_FLAGS] & 1u)) {
+        printf("No hardware mode switching available.\n");
+        printf("No modes have been found.\n");
+        return 0;
+    }
 
     reported_modes = caps[CAP_MODE_COUNT];
     max_modes = (cap_words - CAP_FIRST_MODE) / 2;
+
     if (reported_modes == 0) {
-        printf("Mode list: unavailable\n");
+        printf("No modes have been found.\n");
         return 0;
     }
 
@@ -112,7 +109,8 @@ static int run_list(void) {
     if (cap_modes > max_modes) {
         cap_modes = max_modes;
     }
-    printf("Mode list (%u entries):\n", reported_modes);
+
+    printf("Available modes (%u):\n", reported_modes);
     printed = 0;
     for (i = 0; i < cap_modes; i++) {
         idx = CAP_FIRST_MODE + i * 2;
@@ -124,11 +122,13 @@ static int run_list(void) {
         printf("  %ux%u\n", mode_w, mode_h);
         printed++;
     }
+
     if (printed == 0) {
-        printf("  (no valid entries reported)\n");
+        printf("No modes have been found.\n");
     }
+
     if (reported_modes > max_modes) {
-        printf("  (list truncated to %u entries because of buffer size)\n", max_modes);
+        printf("  (list truncated to %u entries)\n", max_modes);
     }
 
     return 0;
