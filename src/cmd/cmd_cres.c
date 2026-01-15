@@ -30,9 +30,7 @@ enum {
 
 static void print_usage(void) {
     printf("Usage: cres <width> <height> [refresh_rate]\n");
-    printf("       cres list\n");
     printf("       cres info\n");
-    printf("cres list reports the hardware-supported modes without switching any mode.\n");
 }
 
 static int parse_positive(const char *input, const char *label, unsigned int limit, unsigned int *out) {
@@ -77,63 +75,6 @@ static int run_info(void) {
     return 0;
 }
 
-static int run_list(void) {
-    unsigned int caps[FB_CAPS_WORDS];
-    unsigned int cap_words;
-    unsigned int reported_modes, max_modes, cap_modes, printed, i, idx, mode_w, mode_h;
-    int rc;
-
-    memset(caps, 0, sizeof(caps));
-    cap_words = sizeof(caps) / sizeof(caps[0]);
-    rc = fb_getcaps(caps, cap_words);
-    if (rc != 0) {
-        fprintf(stderr, "Failed to query framebuffer caps (%d)\n", rc);
-        return 1;
-    }
-
-    if (!(caps[CAP_FLAGS] & 1u)) {
-        printf("No hardware mode switching available.\n");
-        printf("No modes have been found.\n");
-        return 0;
-    }
-
-    reported_modes = caps[CAP_MODE_COUNT];
-    max_modes = (cap_words - CAP_FIRST_MODE) / 2;
-
-    if (reported_modes == 0) {
-        printf("No modes have been found.\n");
-        return 0;
-    }
-
-    cap_modes = reported_modes;
-    if (cap_modes > max_modes) {
-        cap_modes = max_modes;
-    }
-
-    printf("Available modes (%u):\n", reported_modes);
-    printed = 0;
-    for (i = 0; i < cap_modes; i++) {
-        idx = CAP_FIRST_MODE + i * 2;
-        mode_w = caps[idx];
-        mode_h = caps[idx + 1];
-        if (mode_w == 0 || mode_h == 0) {
-            continue;
-        }
-        printf("  %ux%u\n", mode_w, mode_h);
-        printed++;
-    }
-
-    if (printed == 0) {
-        printf("No modes have been found.\n");
-    }
-
-    if (reported_modes > max_modes) {
-        printf("  (list truncated to %u entries)\n", max_modes);
-    }
-
-    return 0;
-}
-
 int cmd_cres(int argc, char **argv) {
     unsigned int width, height, refresh;
     int result;
@@ -143,9 +84,6 @@ int cmd_cres(int argc, char **argv) {
         return 1;
     }
 
-    if (strcmp(argv[1], "list") == 0) {
-        return run_list();
-    }
     if (strcmp(argv[1], "info") == 0) {
         return run_info();
     }
@@ -186,7 +124,6 @@ int cmd_cres(int argc, char **argv) {
             return 1;
         case -4:
             fprintf(stderr, "Error: Resolution exceeds physical framebuffer size\n");
-            fprintf(stderr, "Use 'cres list' to inspect supported modes\n");
             return 1;
         case -5:
             fprintf(stderr, "Error: Not enough framebuffer memory for requested mode\n");
