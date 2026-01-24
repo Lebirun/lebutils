@@ -30,6 +30,15 @@ static void cu_print_help(void) {
 #ifdef CONFIG_CMD_WRITE
     puts("  write [-a]        -a: append mode");
 #endif
+#ifdef CONFIG_CMD_FREE
+    puts("  free [-h]         -h: human-readable output");
+#endif
+#ifdef CONFIG_CMD_DF
+    puts("  df [-h]           -h: human-readable output");
+#endif
+#ifdef CONFIG_CMD_UNAME
+    puts("  uname [-asnrvm]   -a: all, -s: sysname, -n: nodename");
+#endif
     puts("");
     puts("Usage: lebcu <command> [args...]");
 }

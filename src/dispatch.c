@@ -38,6 +38,15 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_CRES
     {"cres", cmd_cres},
 #endif
+#ifdef CONFIG_CMD_FREE
+    {"free", cmd_free},
+#endif
+#ifdef CONFIG_CMD_DF
+    {"df", cmd_df},
+#endif
+#ifdef CONFIG_CMD_UNAME
+    {"uname", cmd_uname},
+#endif
     {NULL, NULL}
 };
 

@@ -1,15 +1,14 @@
 #include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 int main(int argc, char **argv) {
-    char **nargv = malloc(sizeof(char *) * (unsigned int)(argc + 2));
-    if (!nargv) return 1;
-    nargv[0] = (char *)"lebcu";
-    nargv[1] = (char *)"cres";
-    for (int i = 1; i < argc; i++) nargv[i + 1] = argv[i];
+    char *nargv[64];
+    int i;
+
+    if (argc > 60) argc = 60;
+    nargv[0] = "lebcu";
+    nargv[1] = "cres";
+    for (i = 1; i < argc; i++) nargv[i + 1] = argv[i];
     nargv[argc + 1] = 0;
     execve("/bin/lebcu", nargv, 0);
-    printf("cres: exec failed\n");
     return 127;
 }

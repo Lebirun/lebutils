@@ -56,6 +56,15 @@ int cmd_ticks(int argc, char **argv);
 #ifdef CONFIG_CMD_CRES
 int cmd_cres(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_FREE
+int cmd_free(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_DF
+int cmd_df(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_UNAME
+int cmd_uname(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

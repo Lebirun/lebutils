@@ -1,9 +1,10 @@
 CC = i686-elf-gcc
+STRIP = i686-elf-strip
 
 LIBC = ../../libc
 LIBC_ABS = $(abspath $(LIBC))
 
-CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -m32 -O2 -nostdinc
+CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -m32 -Os -fomit-frame-pointer -nostdinc
 CPPFLAGS = -isystem $(LIBC)/leblibc/include -isystem $(LIBC)/leblibc/build-i386/obj/include -isystem $(LIBC)/leblibc/arch/i386 -isystem $(LIBC)/leblibc/arch/generic -I$(LIBC)/include -I$(LIBC)/src -I./src -I./src/cmd -I./src/wrap
 
 CRT1 = $(LIBC)/leblibc/build-i386/lib/crt1.o
@@ -52,6 +53,15 @@ endif
 ifeq ($(COMMAND_CRES),y)
 CONFIG_DEFINES += -DCONFIG_CMD_CRES
 endif
+ifeq ($(COMMAND_FREE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_FREE
+endif
+ifeq ($(COMMAND_DF),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DF
+endif
+ifeq ($(COMMAND_UNAME),y)
+CONFIG_DEFINES += -DCONFIG_CMD_UNAME
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
@@ -92,6 +102,15 @@ endif
 ifeq ($(COMMAND_CRES),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_cres.c
 endif
+ifeq ($(COMMAND_FREE),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_free.c
+endif
+ifeq ($(COMMAND_DF),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_df.c
+endif
+ifeq ($(COMMAND_UNAME),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_uname.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -128,6 +147,15 @@ BIN_TARGETS += write
 endif
 ifeq ($(COMMAND_CRES),y)
 BIN_TARGETS += cres
+endif
+ifeq ($(COMMAND_FREE),y)
+BIN_TARGETS += free
+endif
+ifeq ($(COMMAND_DF),y)
+BIN_TARGETS += df
+endif
+ifeq ($(COMMAND_UNAME),y)
+BIN_TARGETS += uname
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
