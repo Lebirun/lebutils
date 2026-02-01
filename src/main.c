@@ -27,9 +27,6 @@ static void cu_print_help(void) {
 #ifdef CONFIG_CMD_TOUCH
     puts("  touch [-c]        -c: do not create");
 #endif
-#ifdef CONFIG_CMD_WRITE
-    puts("  write [-a]        -a: append mode");
-#endif
 #ifdef CONFIG_CMD_FREE
     puts("  free [-h]         -h: human-readable output");
 #endif

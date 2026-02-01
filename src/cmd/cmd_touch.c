@@ -4,6 +4,7 @@
 
 int cmd_touch(int argc, char **argv) {
     int no_create, file_count, i, fd, ret, rc;
+    const char *p;
     char path[256];
 
     no_create = 0;
@@ -11,7 +12,7 @@ int cmd_touch(int argc, char **argv) {
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
-            for (const char *p = argv[i] + 1; *p; p++) {
+            for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'c') no_create = 1;
             }
         } else {

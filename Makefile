@@ -41,14 +41,8 @@ endif
 ifeq ($(COMMAND_RM),y)
 CONFIG_DEFINES += -DCONFIG_CMD_RM
 endif
-ifeq ($(COMMAND_TICKS),y)
-CONFIG_DEFINES += -DCONFIG_CMD_TICKS
-endif
 ifeq ($(COMMAND_TOUCH),y)
 CONFIG_DEFINES += -DCONFIG_CMD_TOUCH
-endif
-ifeq ($(COMMAND_WRITE),y)
-CONFIG_DEFINES += -DCONFIG_CMD_WRITE
 endif
 ifeq ($(COMMAND_CRES),y)
 CONFIG_DEFINES += -DCONFIG_CMD_CRES
@@ -61,6 +55,9 @@ CONFIG_DEFINES += -DCONFIG_CMD_DF
 endif
 ifeq ($(COMMAND_UNAME),y)
 CONFIG_DEFINES += -DCONFIG_CMD_UNAME
+endif
+ifeq ($(COMMAND_DATE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DATE
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -90,14 +87,8 @@ endif
 ifeq ($(COMMAND_RM),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_rm.c
 endif
-ifeq ($(COMMAND_TICKS),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ticks.c
-endif
 ifeq ($(COMMAND_TOUCH),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_touch.c
-endif
-ifeq ($(COMMAND_WRITE),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_write.c
 endif
 ifeq ($(COMMAND_CRES),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_cres.c
@@ -110,6 +101,9 @@ COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_df.c
 endif
 ifeq ($(COMMAND_UNAME),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_uname.c
+endif
+ifeq ($(COMMAND_DATE),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_date.c
 endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
@@ -136,14 +130,8 @@ endif
 ifeq ($(COMMAND_RM),y)
 BIN_TARGETS += rm
 endif
-ifeq ($(COMMAND_TICKS),y)
-BIN_TARGETS += ticks
-endif
 ifeq ($(COMMAND_TOUCH),y)
 BIN_TARGETS += touch
-endif
-ifeq ($(COMMAND_WRITE),y)
-BIN_TARGETS += write
 endif
 ifeq ($(COMMAND_CRES),y)
 BIN_TARGETS += cres
@@ -156,6 +144,9 @@ BIN_TARGETS += df
 endif
 ifeq ($(COMMAND_UNAME),y)
 BIN_TARGETS += uname
+endif
+ifeq ($(COMMAND_DATE),y)
+BIN_TARGETS += date
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))

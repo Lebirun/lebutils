@@ -47,12 +47,6 @@ int cmd_mkdir(int argc, char **argv);
 #ifdef CONFIG_CMD_RM
 int cmd_rm(int argc, char **argv);
 #endif
-#ifdef CONFIG_CMD_WRITE
-int cmd_write(int argc, char **argv);
-#endif
-#ifdef CONFIG_CMD_TICKS
-int cmd_ticks(int argc, char **argv);
-#endif
 #ifdef CONFIG_CMD_CRES
 int cmd_cres(int argc, char **argv);
 #endif
@@ -64,6 +58,9 @@ int cmd_df(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_UNAME
 int cmd_uname(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_DATE
+int cmd_date(int argc, char **argv);
 #endif
 
 const char *cu_basename(const char *path);

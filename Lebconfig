@@ -8,11 +8,10 @@ subcategory "Software" {
     item type=bool name="mkdir" default=enable id=mkdir alias="COMMAND_MKDIR" help="Enable the 'mkdir' command - creates directories, including parents if needed"
     item type=bool name="pwd" default=enable id=pwd alias="COMMAND_PWD" help="Enable the 'pwd' command - prints the current working directory path"
     item type=bool name="rm" default=enable id=rm alias="COMMAND_RM" help="Enable the 'rm' command - removes files or directories, with recursive and force options"
-    item type=bool name="ticks" default=enable id=ticks alias="COMMAND_TICKS" help="!!! DEPRECATED !!! Enable the 'ticks' command - displays current tick rate, uptime in ticks, and performance stats"
     item type=bool name="touch" default=enable id=touch alias="COMMAND_TOUCH" help="Enable the 'touch' command - creates empty files or updates file timestamps"
-    item type=bool name="write" default=enable id=write alias="COMMAND_WRITE" help="!!! DEPRECATED !!! Enable the 'write' command - writes or appends text to files (WILL BE REMOVED IN THE NEAR FUTURE)"
     item type=bool name="cres" default=enable id=cres alias="COMMAND_CRES" help="Enable the 'cres' command - allows changing screen resolution, refresh rate, and display settings in TTY mode"
     item type=bool name="free" default=enable id=free alias="COMMAND_FREE" help="Enable the 'free' command - displays system memory usage statistics (total, used, free)"
     item type=bool name="df" default=enable id=df alias="COMMAND_DF" help="Enable the 'df' command - reports filesystem disk space usage for all mounted filesystems"
     item type=bool name="uname" default=enable id=uname alias="COMMAND_UNAME" help="Enable the 'uname' command - displays system information including OS name, version, and build timestamp"
+    item type=bool name="date" default=enable id=date alias="COMMAND_DATE" help="Enable the 'date' command - displays the current date and time"
 }

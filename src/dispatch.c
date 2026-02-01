@@ -47,6 +47,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_UNAME
     {"uname", cmd_uname},
 #endif
+#ifdef CONFIG_CMD_DATE
+    {"date", cmd_date},
+#endif
     {NULL, NULL}
 };
 

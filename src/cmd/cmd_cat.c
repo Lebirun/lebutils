@@ -9,7 +9,7 @@ static int show_line_numbers = 0;
 
 static int cat_one(const char *arg) {
     char path[256];
-    int fd, rd, line, at_line_start;
+    int fd, rd, line, at_line_start, i;
     unsigned int size, type;
     char buf[256];
 
@@ -38,7 +38,7 @@ static int cat_one(const char *arg) {
     at_line_start = 1;
     while ((rd = vfs_read_fd(fd, buf, sizeof(buf))) > 0) {
         if (show_line_numbers) {
-            for (int i = 0; i < rd; i++) {
+            for (i = 0; i < rd; i++) {
                 if (at_line_start) {
                     printf("%6d  ", line++);
                     at_line_start = 0;
@@ -62,14 +62,15 @@ static int cat_one(const char *arg) {
 }
 
 int cmd_cat(int argc, char **argv) {
-    int file_count, i;
+    int file_count, i, rc;
+    const char *p;
 
     show_line_numbers = 0;
     file_count = 0;
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
-            for (const char *p = argv[i] + 1; *p; p++) {
+            for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'n') show_line_numbers = 1;
             }
         } else {
@@ -82,7 +83,7 @@ int cmd_cat(int argc, char **argv) {
         return 1;
     }
 
-    int rc = 0;
+    rc = 0;
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] != '-') {
             if (cat_one(argv[i]) != 0) rc = 1;

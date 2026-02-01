@@ -27,6 +27,7 @@ static int mkdir_recursive(const char *path) {
 
 int cmd_mkdir(int argc, char **argv) {
     int parents, dir_count, i, ret, rc;
+    const char *p;
     char path[256];
 
     parents = 0;
@@ -34,7 +35,7 @@ int cmd_mkdir(int argc, char **argv) {
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
-            for (const char *p = argv[i] + 1; *p; p++) {
+            for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'p') parents = 1;
             }
         } else {
