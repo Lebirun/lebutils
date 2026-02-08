@@ -34,6 +34,14 @@ int cmd_mkdir(int argc, char **argv) {
     dir_count = 0;
 
     for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            puts("Usage: mkdir [-p] DIRECTORY...");
+            puts("Create directories.");
+            puts("");
+            puts("  -p         create parent directories as needed");
+            puts("  -h, --help display this help and exit");
+            return 0;
+        }
         if (argv[i][0] == '-') {
             for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'p') parents = 1;

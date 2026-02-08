@@ -13,12 +13,22 @@ int cmd_ls(int argc, char **argv) {
     int fd;
     unsigned int size, type, entry_type, col, idx;
     char name[64];
+    const char *type_str;
 
     show_all = 0;
     long_format = 0;
     arg = 0;
 
     for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0) {
+            puts("Usage: ls [-al] [DIRECTORY]");
+            puts("List directory contents.");
+            puts("");
+            puts("  -a   show all entries including hidden");
+            puts("  -l   use long listing format");
+            puts("  --help  display this help and exit");
+            return 0;
+        }
         if (argv[i][0] == '-') {
             for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'a') show_all = 1;
@@ -61,7 +71,7 @@ int cmd_ls(int argc, char **argv) {
         if (!show_all && name[0] == '.') continue;
         
         if (long_format) {
-            const char *type_str = (entry_type & 0x02) ? "d" : "-";
+            type_str = (entry_type & 0x02) ? "d" : "-";
             printf("%s  %s\n", type_str, name);
         } else {
             printf("%-16s", name);

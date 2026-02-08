@@ -79,9 +79,9 @@ int cmd_cres(int argc, char **argv) {
     unsigned int width, height, refresh;
     int result;
 
-    if (argc < 2) {
+    if (argc < 2 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
         print_usage();
-        return 1;
+        return (argc < 2) ? 1 : 0;
     }
 
     if (strcmp(argv[1], "info") == 0) {

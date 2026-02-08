@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "cu.h"
 
@@ -11,6 +12,14 @@ int cmd_rm(int argc, char **argv) {
     file_count = 0;
 
     for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            puts("Usage: rm [-f] FILE...");
+            puts("Remove files.");
+            puts("");
+            puts("  -f         ignore nonexistent files, never prompt");
+            puts("  -h, --help display this help and exit");
+            return 0;
+        }
         if (argv[i][0] == '-') {
             for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'f') force = 1;

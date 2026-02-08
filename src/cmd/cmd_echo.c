@@ -48,7 +48,20 @@ static void cu_expand(const char *in) {
 int cmd_echo(int argc, char **argv) {
     int no_newline, interpret_escapes, first_arg, printed;
     int i;
+    int valid_flag;
     const char *p;
+
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0) {
+            puts("Usage: echo [-ne] [STRING]...");
+            puts("Display a line of text.");
+            puts("");
+            puts("  -n   do not output the trailing newline");
+            puts("  -e   interpret backslash escapes");
+            puts("  --help  display this help and exit");
+            return 0;
+        }
+    }
 
     no_newline = 0;
     interpret_escapes = 0;
@@ -56,7 +69,7 @@ int cmd_echo(int argc, char **argv) {
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-' && first_arg) {
-            int valid_flag = 1;
+            valid_flag = 1;
             for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'n') no_newline = 1;
                 else if (*p == 'e') interpret_escapes = 1;
@@ -71,7 +84,7 @@ int cmd_echo(int argc, char **argv) {
     printed = 0;
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-' && first_arg) {
-            int valid_flag = 1;
+            valid_flag = 1;
             for (p = argv[i] + 1; *p; p++) {
                 if (*p != 'n' && *p != 'e') { valid_flag = 0; break; }
             }

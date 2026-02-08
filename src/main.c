@@ -8,36 +8,11 @@ static void cu_print_help(void) {
     puts("Commands:");
     cu_print_commands();
     puts("");
-    puts("Command Options:");
-#ifdef CONFIG_CMD_ECHO
-    puts("  echo [-n] [-e]    -n: no newline, -e: interpret escapes");
-#endif
-#ifdef CONFIG_CMD_LS
-    puts("  ls [-a] [-l]      -a: show all, -l: long format");
-#endif
-#ifdef CONFIG_CMD_CAT
-    puts("  cat [-n]          -n: show line numbers");
-#endif
-#ifdef CONFIG_CMD_RM
-    puts("  rm [-f]           -f: force (ignore errors)");
-#endif
-#ifdef CONFIG_CMD_MKDIR
-    puts("  mkdir [-p]        -p: create parents");
-#endif
-#ifdef CONFIG_CMD_TOUCH
-    puts("  touch [-c]        -c: do not create");
-#endif
-#ifdef CONFIG_CMD_FREE
-    puts("  free [-h]         -h: human-readable output");
-#endif
-#ifdef CONFIG_CMD_DF
-    puts("  df [-h]           -h: human-readable output");
-#endif
-#ifdef CONFIG_CMD_UNAME
-    puts("  uname [-asnrvm]   -a: all, -s: sysname, -n: nodename");
-#endif
+    puts("Lebcu Options:");
+    puts("  -h, --help       show this help");
     puts("");
     puts("Usage: lebcu <command> [args...]");
+    puts("Run <command> --help for command-specific help.");
 }
 
 int cu_main(int argc, char **argv) {

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "cu.h"
 
@@ -11,6 +12,14 @@ int cmd_touch(int argc, char **argv) {
     file_count = 0;
 
     for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            puts("Usage: touch [-c] FILE...");
+            puts("Update file timestamps or create files.");
+            puts("");
+            puts("  -c         do not create any files");
+            puts("  -h, --help display this help and exit");
+            return 0;
+        }
         if (argv[i][0] == '-') {
             for (p = argv[i] + 1; *p; p++) {
                 if (*p == 'c') no_create = 1;

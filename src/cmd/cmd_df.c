@@ -3,10 +3,13 @@
 #include <fcntl.h>
 #include "cu.h"
 
-#define O_RDONLY 0
+#define UNIT_KB 0
+#define UNIT_MB 1
+#define UNIT_GB 2
+#define UNIT_HUMAN 3
 
 int cmd_df(int argc, char **argv) {
-    int human_readable;
+    int unit_mode;
     int show_help;
     int i;
     const char *p;
@@ -23,8 +26,12 @@ int cmd_df(int argc, char **argv) {
     int mnt_idx;
     int fs_idx;
     int opt_idx;
+    unsigned int size_kb = 0;
+    unsigned int used_kb = 0;
+    unsigned int avail_kb = 0;
+    const char *blk_hdr;
 
-    human_readable = 0;
+    unit_mode = UNIT_KB;
     show_help = 0;
 
     for (i = 1; i < argc; i++) {
@@ -33,7 +40,9 @@ int cmd_df(int argc, char **argv) {
         }
         if (argv[i][0] == '-') {
             for (p = argv[i] + 1; *p; p++) {
-                if (*p == 'h') human_readable = 1;
+                if (*p == 'h') unit_mode = UNIT_HUMAN;
+                else if (*p == 'M') unit_mode = UNIT_MB;
+                else if (*p == 'G') unit_mode = UNIT_GB;
                 else if (*p == '?') show_help = 1;
             }
         }
@@ -43,6 +52,8 @@ int cmd_df(int argc, char **argv) {
         printf("Usage: df [OPTION]\n");
         printf("Show filesystem disk space usage.\n\n");
         printf("  -h         show sizes in human readable format\n");
+        printf("  -M         show sizes in MB\n");
+        printf("  -G         show sizes in GB\n");
         printf("  --help     display this help\n");
         return 0;
     }
@@ -62,11 +73,22 @@ int cmd_df(int argc, char **argv) {
     }
     buf[n] = '\0';
 
-    if (human_readable) {
-        printf("%-15s %10s %10s %10s %6s %s\n", "Filesystem", "Size", "Used", "Avail", "Use%", "Mounted on");
-    } else {
-        printf("%-15s %10s %10s %10s %6s %s\n", "Filesystem", "1K-blocks", "Used", "Available", "Use%", "Mounted on");
+    switch (unit_mode) {
+    case UNIT_MB:
+        blk_hdr = "MB-blocks";
+        break;
+    case UNIT_GB:
+        blk_hdr = "GB-blocks";
+        break;
+    case UNIT_HUMAN:
+        blk_hdr = "Size";
+        break;
+    default:
+        blk_hdr = "1K-blocks";
+        break;
     }
+
+    printf("%-15s %10s %10s %10s %6s %s\n", "Filesystem", blk_hdr, "Used", "Available", "Use%", "Mounted on");
 
     line = buf;
     while (*line) {
@@ -104,37 +126,79 @@ int cmd_df(int argc, char **argv) {
 
         if (dev_idx > 0 && mnt_idx > 0) {
             if (strcmp(fstype, "procfs") == 0 || strcmp(fstype, "devfs") == 0) {
+                /* Skip pseudo-filesystems */
             } else if (strcmp(fstype, "ramfs") == 0) {
-                if (human_readable) {
-                    printf("%-15s %10s %10s %10s %6s %s\n",
-                           device, "4.0M", "256K", "3.7M", "6%", mountpoint);
-                } else {
-                    printf("%-15s %10u %10u %10u %6s %s\n",
-                           device, 4096, 256, 3840, "6%", mountpoint);
-                }
+                size_kb = 4096;
+                used_kb = 256;
+                avail_kb = 3840;
             } else if (strcmp(fstype, "initrd") == 0) {
-                if (human_readable) {
-                    printf("%-15s %10s %10s %10s %6s %s\n",
-                           device, "8.0M", "2.0M", "6.0M", "25%", mountpoint);
-                } else {
-                    printf("%-15s %10u %10u %10u %6s %s\n",
-                           device, 8192, 2048, 6144, "25%", mountpoint);
-                }
+                size_kb = 8192;
+                used_kb = 2048;
+                avail_kb = 6144;
             } else if (strcmp(fstype, "ext4") == 0) {
-                if (human_readable) {
-                    printf("%-15s %10s %10s %10s %6s %s\n",
-                           device, "1.0G", "150M", "850M", "15%", mountpoint);
-                } else {
-                    printf("%-15s %10u %10u %10u %6s %s\n",
-                           device, 1048576, 153600, 870400, "15%", mountpoint);
-                }
+                size_kb = 1048576;
+                used_kb = 153600;
+                avail_kb = 870400;
             } else {
-                if (human_readable) {
-                    printf("%-15s %10s %10s %10s %6s %s\n",
-                           device, "100M", "10M", "90M", "10%", mountpoint);
-                } else {
-                    printf("%-15s %10u %10u %10u %6s %s\n",
-                           device, 102400, 10240, 92160, "10%", mountpoint);
+                size_kb = 102400;
+                used_kb = 10240;
+                avail_kb = 92160;
+            }
+            
+            if (strcmp(fstype, "procfs") != 0 && strcmp(fstype, "devfs") != 0) {
+                unsigned int use_pct = size_kb ? (used_kb * 100 / size_kb) : 0;
+                switch (unit_mode) {
+                case UNIT_MB: {
+                    unsigned int s_i = size_kb / 1000;
+                    unsigned int s_d = (size_kb % 1000) / 100;
+                    unsigned int u_i = used_kb / 1000;
+                    unsigned int u_d = (used_kb % 1000) / 100;
+                    unsigned int a_i = avail_kb / 1000;
+                    unsigned int a_d = (avail_kb % 1000) / 100;
+                    printf("%-15s %6u.%u MB %6u.%u MB %6u.%u MB %5u%% %s\n",
+                           device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
+                    break;
+                }
+                case UNIT_GB: {
+                    unsigned int s_i = size_kb / 1000000;
+                    unsigned int s_d = (size_kb % 1000000) / 10000;
+                    unsigned int u_i = used_kb / 1000000;
+                    unsigned int u_d = (used_kb % 1000000) / 10000;
+                    unsigned int a_i = avail_kb / 1000000;
+                    unsigned int a_d = (avail_kb % 1000000) / 10000;
+                    printf("%-15s %5u.%02u GB %5u.%02u GB %5u.%02u GB %5u%% %s\n",
+                           device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
+                    break;
+                }
+                case UNIT_HUMAN: {
+                    if (size_kb >= 1000000) {
+                        unsigned int s_i = size_kb / 1000000;
+                        unsigned int s_d = (size_kb % 1000000) / 10000;
+                        unsigned int u_i = used_kb / 1000000;
+                        unsigned int u_d = (used_kb % 1000000) / 10000;
+                        unsigned int a_i = avail_kb / 1000000;
+                        unsigned int a_d = (avail_kb % 1000000) / 10000;
+                        printf("%-15s %5u.%02u GB %5u.%02u GB %5u.%02u GB %5u%% %s\n",
+                               device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
+                    } else if (size_kb >= 1000) {
+                        unsigned int s_i = size_kb / 1000;
+                        unsigned int s_d = (size_kb % 1000) / 100;
+                        unsigned int u_i = used_kb / 1000;
+                        unsigned int u_d = (used_kb % 1000) / 100;
+                        unsigned int a_i = avail_kb / 1000;
+                        unsigned int a_d = (avail_kb % 1000) / 100;
+                        printf("%-15s %6u.%u MB %6u.%u MB %6u.%u MB %5u%% %s\n",
+                               device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
+                    } else {
+                        printf("%-15s %8u KB %8u KB %8u KB %5u%% %s\n",
+                               device, size_kb, used_kb, avail_kb, use_pct, mountpoint);
+                    }
+                    break;
+                }
+                default:
+                    printf("%-15s %10u %10u %10u %5u%% %s\n",
+                           device, size_kb, used_kb, avail_kb, use_pct, mountpoint);
+                    break;
                 }
             }
         }
