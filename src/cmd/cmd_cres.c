@@ -68,7 +68,12 @@ static int run_info(void) {
     printf("Framebuffer memory   : %u bytes\n", caps[CAP_VRAM_BYTES]);
     
     if (caps[CAP_FLAGS] & 1u) {
-        driver_name = (caps[CAP_FLAGS] & 2u) ? "BGA" : "VESA/Generic";
+        if (caps[CAP_FLAGS] & 2u)
+            driver_name = "BGA";
+        else if (caps[CAP_FLAGS] & 4u)
+            driver_name = "Cirrus";
+        else
+            driver_name = "VESA/Generic";
         printf("Graphics driver      : %s\n", driver_name);
     }
 

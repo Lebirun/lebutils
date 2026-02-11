@@ -14,6 +14,7 @@ int cmd_free(int argc, char **argv) {
     unsigned int mem_total;
     unsigned int mem_free;
     unsigned int mem_used;
+    unsigned int mem_all_used;
     int i;
     const char *p;
     int fd;
@@ -25,6 +26,8 @@ int cmd_free(int argc, char **argv) {
     show_help = 0;
     mem_total = 0;
     mem_free = 0;
+    mem_used = 0;
+    mem_all_used = 0;
     
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -85,14 +88,35 @@ int cmd_free(int argc, char **argv) {
                 p++;
             }
         }
+        else if (strncmp(line, "MemUsed:", 8) == 0) {
+            p = line + 8;
+            while (*p == ' ' || *p == '\t') p++;
+            mem_used = 0;
+            while (*p >= '0' && *p <= '9') {
+                mem_used = mem_used * 10 + (*p - '0');
+                p++;
+            }
+        }
+        else if (strncmp(line, "MemAllUsed:", 11) == 0) {
+            p = line + 11;
+            while (*p == ' ' || *p == '\t') p++;
+            mem_all_used = 0;
+            while (*p >= '0' && *p <= '9') {
+                mem_all_used = mem_all_used * 10 + (*p - '0');
+                p++;
+            }
+        }
         
         while (*line && *line != '\n') line++;
         if (*line == '\n') line++;
     }
     
-    mem_used = mem_total - mem_free;
+    if (mem_used == 0 && mem_all_used == 0) {
+        mem_all_used = mem_total - mem_free;
+        mem_used = mem_all_used;
+    }
     
-    printf("              total        used        free\n");
+    printf("                 total         used     all used         free\n");
     
     switch (unit_mode) {
     case UNIT_MB: {
@@ -100,10 +124,12 @@ int cmd_free(int argc, char **argv) {
         unsigned int t_d = (mem_total % 1024) * 10 / 1024;
         unsigned int u_i = mem_used / 1024;
         unsigned int u_d = (mem_used % 1024) * 10 / 1024;
+        unsigned int a_i = mem_all_used / 1024;
+        unsigned int a_d = (mem_all_used % 1024) * 10 / 1024;
         unsigned int f_i = mem_free / 1024;
         unsigned int f_d = (mem_free % 1024) * 10 / 1024;
-        printf("Mem:       %5u.%u MB  %5u.%u MB  %5u.%u MB\n", 
-               t_i, t_d, u_i, u_d, f_i, f_d);
+        printf("Mem:       %6u.%u MB  %6u.%u MB  %6u.%u MB  %6u.%u MB\n", 
+               t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
         break;
     }
     case UNIT_GB: {
@@ -111,10 +137,12 @@ int cmd_free(int argc, char **argv) {
         unsigned int t_d = (mem_total % 1048576) * 100 / 1048576;
         unsigned int u_i = mem_used / 1048576;
         unsigned int u_d = (mem_used % 1048576) * 100 / 1048576;
+        unsigned int a_i = mem_all_used / 1048576;
+        unsigned int a_d = (mem_all_used % 1048576) * 100 / 1048576;
         unsigned int f_i = mem_free / 1048576;
         unsigned int f_d = (mem_free % 1048576) * 100 / 1048576;
-        printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
-               t_i, t_d, u_i, u_d, f_i, f_d);
+        printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
+               t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
         break;
     }
     case UNIT_HUMAN: {
@@ -123,25 +151,29 @@ int cmd_free(int argc, char **argv) {
             unsigned int t_d = (mem_total % 1048576) * 100 / 1048576;
             unsigned int u_i = mem_used / 1048576;
             unsigned int u_d = (mem_used % 1048576) * 100 / 1048576;
+            unsigned int a_i = mem_all_used / 1048576;
+            unsigned int a_d = (mem_all_used % 1048576) * 100 / 1048576;
             unsigned int f_i = mem_free / 1048576;
             unsigned int f_d = (mem_free % 1048576) * 100 / 1048576;
-            printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
-                   t_i, t_d, u_i, u_d, f_i, f_d);
+            printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
+                   t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
         } else {
             unsigned int t_i = mem_total / 1024;
             unsigned int t_d = (mem_total % 1024) * 10 / 1024;
             unsigned int u_i = mem_used / 1024;
             unsigned int u_d = (mem_used % 1024) * 10 / 1024;
+            unsigned int a_i = mem_all_used / 1024;
+            unsigned int a_d = (mem_all_used % 1024) * 10 / 1024;
             unsigned int f_i = mem_free / 1024;
             unsigned int f_d = (mem_free % 1024) * 10 / 1024;
-            printf("Mem:       %5u.%u MB  %5u.%u MB  %5u.%u MB\n", 
-                   t_i, t_d, u_i, u_d, f_i, f_d);
+            printf("Mem:       %6u.%u MB  %6u.%u MB  %6u.%u MB  %6u.%u MB\n", 
+                   t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
         }
         break;
     }
     default:
-        printf("Mem:       %8u KB  %8u KB  %8u KB\n", 
-               mem_total, mem_used, mem_free);
+        printf("Mem:       %8u KB  %8u KB  %8u KB  %8u KB\n", 
+               mem_total, mem_used, mem_all_used, mem_free);
         break;
     }
     
