@@ -50,6 +50,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_DATE
     {"date", cmd_date},
 #endif
+#ifdef CONFIG_CMD_LNETURL
+    {"lneturl", cmd_lneturl},
+#endif
     {NULL, NULL}
 };
 

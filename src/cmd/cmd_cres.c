@@ -116,6 +116,13 @@ int cmd_cres(int argc, char **argv) {
     }
 
     printf("Setting resolution to %ux%u @ %uHz\n", width, height, refresh);
+    {
+        unsigned int caps[64];
+        int rc = fb_getcaps(caps, sizeof(caps) / sizeof(caps[0]));
+        if (rc == 0 && (caps[CAP_FLAGS] & 4u)) {
+            printf("Looks like you're using Cirrus VGA! Changing resolutions may be limited, and usage on different resolutions may be glitchy. If you're using QEMU, consider switching to QXL or STD VGA.\n");
+        }
+    }
     result = fb_set_mode(width, height, refresh);
 
     switch (result) {

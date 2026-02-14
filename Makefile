@@ -59,6 +59,9 @@ endif
 ifeq ($(COMMAND_DATE),y)
 CONFIG_DEFINES += -DCONFIG_CMD_DATE
 endif
+ifeq ($(COMMAND_LNETURL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LNETURL
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
@@ -105,6 +108,9 @@ endif
 ifeq ($(COMMAND_DATE),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_date.c
 endif
+ifeq ($(COMMAND_LNETURL),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -149,6 +155,9 @@ BIN_TARGETS += uname
 endif
 ifeq ($(COMMAND_DATE),y)
 BIN_TARGETS += date
+endif
+ifeq ($(COMMAND_LNETURL),y)
+BIN_TARGETS += lneturl
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
