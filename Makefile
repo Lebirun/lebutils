@@ -199,13 +199,10 @@ lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(
 
 stage: all
 	mkdir -p $(SYSROOT_BIN)
-	@for app in $(BIN_TARGETS); do \
-		if [ -f $$app.bin ]; then \
-			cp $$app.bin $(SYSROOT_BIN)/$$app; \
-			$(STRIP) -s $(SYSROOT_BIN)/$$app; \
-		else \
-			echo "$$app.bin not built; skipping"; \
-		fi; \
+	cp lebcu.bin $(SYSROOT_BIN)/lebcu
+	$(STRIP) -s $(SYSROOT_BIN)/lebcu
+	@for app in $(filter-out lebcu,$(BIN_TARGETS)); do \
+		ln -sf lebcu $(SYSROOT_BIN)/$$app; \
 	done
 
 clean:

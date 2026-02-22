@@ -126,7 +126,7 @@ int cmd_df(int argc, char **argv) {
 
         if (dev_idx > 0 && mnt_idx > 0) {
             if (strcmp(fstype, "procfs") == 0 || strcmp(fstype, "devfs") == 0) {
-                /* Skip pseudo-filesystems */
+
             } else if (strcmp(fstype, "ramfs") == 0) {
                 size_kb = 4096;
                 used_kb = 256;
