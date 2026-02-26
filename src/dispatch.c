@@ -53,6 +53,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LNETURL
     {"lneturl", cmd_lneturl},
 #endif
+#ifdef CONFIG_CMD_DHCP
+    {"dhcp", cmd_dhcp},
+#endif
     {NULL, NULL}
 };
 

@@ -65,6 +65,9 @@ int cmd_date(int argc, char **argv);
 #ifdef CONFIG_CMD_LNETURL
 int cmd_lneturl(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_DHCP
+int cmd_dhcp(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

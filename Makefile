@@ -62,6 +62,9 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LNETURL
 endif
+ifeq ($(COMMAND_DHCP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DHCP
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
@@ -111,6 +114,9 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
 endif
+ifeq ($(COMMAND_DHCP),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_dhcp.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -158,6 +164,9 @@ BIN_TARGETS += date
 endif
 ifeq ($(COMMAND_LNETURL),y)
 BIN_TARGETS += lneturl
+endif
+ifeq ($(COMMAND_DHCP),y)
+BIN_TARGETS += dhcp
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
