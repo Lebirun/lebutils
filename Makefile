@@ -1,6 +1,19 @@
 CC = i686-elf-gcc
 STRIP = i686-elf-strip
 
+V ?= 0
+ifeq ($(V),0)
+  Q = @
+  MSG_CC    = @printf '  CC      %s\n' $<;
+  MSG_LD    = @printf '  LD      %s\n' $@;
+  MSG_STRIP = @printf '  STRIP   %s\n' $@;
+else
+  Q =
+  MSG_CC =
+  MSG_LD =
+  MSG_STRIP =
+endif
+
 LIBC = ../../libc
 LIBC_ABS = $(abspath $(LIBC))
 
@@ -62,8 +75,14 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LNETURL
 endif
-ifeq ($(COMMAND_DHCP),y)
-CONFIG_DEFINES += -DCONFIG_CMD_DHCP
+ifeq ($(COMMAND_LEBNET),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LEBNET
+endif
+ifeq ($(COMMAND_LEBPKG),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LEBPKG
+endif
+ifeq ($(COMMAND_SYSCALL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_SYSCALL
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -114,8 +133,14 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
 endif
-ifeq ($(COMMAND_DHCP),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_dhcp.c
+ifeq ($(COMMAND_LEBNET),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebnet.c
+endif
+ifeq ($(COMMAND_LEBPKG),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebpkg.c
+endif
+ifeq ($(COMMAND_SYSCALL),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_syscall.c
 endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
@@ -165,8 +190,14 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 BIN_TARGETS += lneturl
 endif
-ifeq ($(COMMAND_DHCP),y)
-BIN_TARGETS += dhcp
+ifeq ($(COMMAND_LEBNET),y)
+BIN_TARGETS += lebnet
+endif
+ifeq ($(COMMAND_LEBPKG),y)
+BIN_TARGETS += lebpkg
+endif
+ifeq ($(COMMAND_SYSCALL),y)
+BIN_TARGETS += syscall
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
@@ -189,27 +220,27 @@ clean-lebconfig:
 
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_VFS_OBJ): $(LEB_VFS_SRC)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_SYSCALLS_OBJ): $(LEB_SYSCALLS_SRC)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_LSYSCALLS_OBJ): $(LEB_LSYSCALLS_SRC)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
-	$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 %.bin: $(SRCDIR)/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
-	$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-i386/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 stage: all
-	mkdir -p $(SYSROOT_BIN)
-	cp lebcu.bin $(SYSROOT_BIN)/lebcu
-	$(STRIP) -s $(SYSROOT_BIN)/lebcu
+	$(Q)mkdir -p $(SYSROOT_BIN)
+	$(Q)cp lebcu.bin $(SYSROOT_BIN)/lebcu
+	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebcu
 	@for app in $(filter-out lebcu,$(BIN_TARGETS)); do \
 		ln -sf lebcu $(SYSROOT_BIN)/$$app; \
 	done

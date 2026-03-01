@@ -53,8 +53,14 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LNETURL
     {"lneturl", cmd_lneturl},
 #endif
-#ifdef CONFIG_CMD_DHCP
-    {"dhcp", cmd_dhcp},
+#ifdef CONFIG_CMD_LEBNET
+    {"lebnet", cmd_lebnet},
+#endif
+#ifdef CONFIG_CMD_LEBPKG
+    {"lebpkg", cmd_lebpkg},
+#endif
+#ifdef CONFIG_CMD_SYSCALL
+    {"syscall", cmd_syscall},
 #endif
     {NULL, NULL}
 };

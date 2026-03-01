@@ -15,8 +15,13 @@ subcategory "Software" {
         item type=bool name="df" default=enable id=df alias="COMMAND_DF" help="Enable the 'df' command - reports filesystem disk space usage for all mounted filesystems"
         item type=bool name="uname" default=enable id=uname alias="COMMAND_UNAME" help="Enable the 'uname' command - displays system information including OS name, version, and build timestamp"
         item type=bool name="date" default=enable id=date alias="COMMAND_DATE" help="Enable the 'date' command - displays the current date and time"
+        item type=bool name="lebpkg" default=enable id=lebpkg alias="COMMAND_LEBPKG" help="Enable the 'lebpkg' command - Lebirun package manager for installing, removing and managing .lpkg packages"
     }
     subcategory "Networking" {
         item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command - HTTP client for GET/POST requests with headers and basic auth"
+        item type=bool name="lebnet" default=enable id=lebnet alias="COMMAND_LEBNET" help="Enable the 'lebnet' command - network management tool (DHCP, DNS configuration, interface info)"
+    }
+    subcategory "Debug" {
+        item type=bool name="syscall" default=enable id=syscall alias="COMMAND_SYSCALL" help="Enable the 'syscall' command - debug tool for testing kernel syscalls (getrandom, raw invoke)"
     }
 }
