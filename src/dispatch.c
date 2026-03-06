@@ -62,6 +62,15 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_SYSCALL
     {"syscall", cmd_syscall},
 #endif
+#ifdef CONFIG_CMD_MOUNT
+    {"mount", cmd_mount},
+#endif
+#ifdef CONFIG_CMD_UMOUNT
+    {"umount", cmd_umount},
+#endif
+#ifdef CONFIG_CMD_PANIC
+    {"panic", cmd_panic},
+#endif
     {NULL, NULL}
 };
 

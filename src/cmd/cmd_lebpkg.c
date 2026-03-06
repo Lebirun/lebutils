@@ -7,11 +7,13 @@
 #define LEBPKG_CONF_DIR    "/etc/lebpkg"
 #define LEBPKG_REPO_DIR    "/etc/lebpkg/repo"
 #define LEBPKG_DB_DIR      "/etc/lebpkg/installed"
+#define LEBPKG_IDX_DIR     "/etc/lebpkg/index"
 #define MAX_RESP_SIZE      (128 * 1024)
 #define MAX_URL_LEN        512
 #define MAX_LINE_LEN       256
 #define MAX_REPOS          8
 #define MAX_PACKAGES       64
+#define MAX_CATEGORIES     16
 #define LPKG_MAGIC         "LPKG"
 #define LPKG_VERSION       1
 #define MAX_PKG_FILES      64
@@ -44,6 +46,8 @@ typedef struct {
     char ver[32];
     char scope[32];
 } repo_t;
+
+static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz);
 
 static void print_usage(void) {
     fprintf(stderr, "Usage: lebpkg <command> [options]\n");
@@ -289,7 +293,6 @@ static const char *skip_json_value(const char *p) {
 
 static const char *parse_pkg_object(const char *p, pkg_entry_t *pkg) {
     char key[64];
-    const char *try_p;
 
     memset(pkg, 0, sizeof(*pkg));
     p = skip_ws(p);
@@ -340,8 +343,28 @@ static const char *parse_pkg_object(const char *p, pkg_entry_t *pkg) {
 static int parse_pkg_index(const char *json, pkg_entry_t *pkgs, int max) {
     const char *p;
     int count;
+    char key[64];
 
     p = skip_ws(json);
+    if (*p == '{') {
+        p++;
+        p = skip_ws(p);
+        while (*p && *p != '}') {
+            if (*p == ',') { p++; p = skip_ws(p); }
+            if (*p == '}') break;
+            p = parse_json_string(p, key, sizeof(key));
+            if (!p) return 0;
+            p = skip_ws(p);
+            if (*p != ':') return 0;
+            p++;
+            p = skip_ws(p);
+            if (strcmp(key, "packages") == 0 && *p == '[')
+                break;
+            p = skip_json_value(p);
+            if (!p) return 0;
+            p = skip_ws(p);
+        }
+    }
     if (*p != '[') return 0;
     p++;
     p = skip_ws(p);
@@ -427,6 +450,10 @@ static int cmd_lebpkg_list(void) {
     unsigned int type;
     unsigned int idx;
     int count;
+    char *buf;
+    pkg_entry_t *pkgs;
+    int npkgs;
+    int j;
 
     fd = vfs_open(LEBPKG_DB_DIR, 0);
     if (fd < 0) {
@@ -434,32 +461,120 @@ static int cmd_lebpkg_list(void) {
         return 0;
     }
 
+    buf = malloc(MAX_RESP_SIZE);
+    pkgs = NULL;
+    npkgs = 0;
+    if (buf) {
+        pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
+        if (pkgs)
+            npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
+        free(buf);
+    }
+
     count = 0;
     idx = 0;
-    printf("Installed packages:\n");
     for (;;) {
         if (vfs_readdir(fd, name, &type, idx) < 0) break;
         idx++;
         if (type != 1) continue;
-        printf("  %s\n", name);
+        for (j = 0; j < npkgs; j++) {
+            if (strcmp(pkgs[j].name, name) == 0) break;
+        }
+        if (j < npkgs)
+            printf("%s/%s [installed]\n  %s\n", name, pkgs[j].version, pkgs[j].description);
+        else
+            printf("%s [installed]\n", name);
         count++;
     }
     vfs_close_fd(fd);
+    if (pkgs) free(pkgs);
     if (count == 0)
-        printf("  (none)\n");
+        printf("No packages installed.\n");
     return 0;
+}
+
+static int parse_manifest_categories(const char *json, char cats[][64], int max) {
+    const char *p;
+    const char *arr;
+    int count;
+    char key[64];
+    char val[64];
+
+    p = skip_ws(json);
+    if (*p != '{') return 0;
+    p++;
+    p = skip_ws(p);
+
+    arr = NULL;
+    while (*p && *p != '}') {
+        if (*p == ',') { p++; p = skip_ws(p); }
+        if (*p == '}') break;
+        p = parse_json_string(p, key, sizeof(key));
+        if (!p) return 0;
+        p = skip_ws(p);
+        if (*p != ':') return 0;
+        p++;
+        p = skip_ws(p);
+        if (strcmp(key, "categories") == 0 && *p == '[') {
+            arr = p;
+            break;
+        }
+        p = skip_json_value(p);
+        if (!p) return 0;
+        p = skip_ws(p);
+    }
+
+    if (!arr) return 0;
+    p = arr + 1;
+    p = skip_ws(p);
+    count = 0;
+    while (*p && *p != ']' && count < max) {
+        if (*p == ',') { p++; p = skip_ws(p); }
+        if (*p == ']') break;
+        if (*p != '{') break;
+        p++;
+        p = skip_ws(p);
+        val[0] = '\0';
+        while (*p && *p != '}') {
+            if (*p == ',') { p++; p = skip_ws(p); }
+            if (*p == '}') break;
+            p = parse_json_string(p, key, sizeof(key));
+            if (!p) return count;
+            p = skip_ws(p);
+            if (*p != ':') return count;
+            p++;
+            p = skip_ws(p);
+            if (strcmp(key, "file") == 0 && *p == '"')
+                p = parse_json_string(p, val, sizeof(val));
+            else
+                p = skip_json_value(p);
+            if (!p) return count;
+            p = skip_ws(p);
+        }
+        if (*p == '}') p++;
+        p = skip_ws(p);
+        if (val[0]) {
+            strncpy(cats[count], val, 63);
+            cats[count][63] = '\0';
+            count++;
+        }
+    }
+    return count;
 }
 
 static int cmd_lebpkg_update(void) {
     repo_t repos[MAX_REPOS];
     int nrepos;
     int i;
+    int c;
     uint8_t *buf;
     uint32_t got;
     int status;
     char url[MAX_URL_LEN];
     char idx_path[MAX_URL_LEN];
     int ret;
+    char cat_files[MAX_CATEGORIES][64];
+    int ncat;
 
     nrepos = load_repos(repos, MAX_REPOS);
     if (nrepos == 0) {
@@ -473,10 +588,12 @@ static int cmd_lebpkg_update(void) {
         return 1;
     }
 
+    vfs_mkdir(LEBPKG_IDX_DIR, 7);
+
     for (i = 0; i < nrepos; i++) {
-        snprintf(url, sizeof(url), "%s/%s/%s/index.json",
+        snprintf(url, sizeof(url), "%s/%s/%s/index/index.json",
                  repos[i].base_url, repos[i].ver, repos[i].scope);
-        printf("Updating from %s...\n", url);
+        printf("Fetching index from %s...\n", url);
 
         got = 0;
         status = 0;
@@ -487,23 +604,79 @@ static int cmd_lebpkg_update(void) {
         }
         buf[got] = '\0';
 
-        snprintf(idx_path, sizeof(idx_path), "%s/index_%d.json", LEBPKG_CONF_DIR, i);
-        write_file_contents(idx_path, (char *)buf, got);
-        printf("  Updated (%u bytes)\n", got);
+        ncat = parse_manifest_categories((char *)buf, cat_files, MAX_CATEGORIES);
+        if (ncat == 0) {
+            fprintf(stderr, "  No categories in manifest\n");
+            continue;
+        }
+
+        for (c = 0; c < ncat; c++) {
+            snprintf(url, sizeof(url), "%s/%s/%s/index/%s",
+                     repos[i].base_url, repos[i].ver, repos[i].scope,
+                     cat_files[c]);
+            printf("  Fetching %s...\n", cat_files[c]);
+
+            got = 0;
+            status = 0;
+            ret = http_get(url, buf, MAX_RESP_SIZE - 1, &got, &status);
+            if (ret < 0 || status != 200) {
+                fprintf(stderr, "    Failed (status %d)\n", status);
+                continue;
+            }
+            buf[got] = '\0';
+
+            snprintf(idx_path, sizeof(idx_path), "%s/index/%d_%s",
+                     LEBPKG_CONF_DIR, i, cat_files[c]);
+            write_file_contents(idx_path, (char *)buf, got);
+            printf("    Saved (%u bytes)\n", got);
+        }
     }
 
     free(buf);
     return 0;
 }
 
+static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz) {
+    int dirfd;
+    char name[64];
+    unsigned int type;
+    unsigned int idx;
+    int total;
+    char path[MAX_URL_LEN];
+    int nlen;
+    int n;
+
+    dirfd = vfs_open(LEBPKG_IDX_DIR, 0);
+    if (dirfd < 0) return 0;
+
+    total = 0;
+    idx = 0;
+    while (total < max) {
+        if (vfs_readdir(dirfd, name, &type, idx) < 0)
+            break;
+        idx++;
+        if (type != 1) continue;
+        nlen = strlen(name);
+        if (nlen < 5 || strcmp(name + nlen - 5, ".json") != 0)
+            continue;
+
+        snprintf(path, sizeof(path), "%s/%s", LEBPKG_IDX_DIR, name);
+        if (read_file_contents(path, buf, bufsz) <= 0)
+            continue;
+        n = parse_pkg_index(buf, pkgs + total, max - total);
+        total += n;
+    }
+    vfs_close_fd(dirfd);
+
+    return total;
+}
+
 static int cmd_lebpkg_search(const char *term) {
-    char idx_path[MAX_URL_LEN];
     char *buf;
     pkg_entry_t *pkgs;
-    int i;
+    int npkgs;
     int j;
     int found;
-    int npkgs;
 
     buf = malloc(MAX_RESP_SIZE);
     if (!buf) {
@@ -518,23 +691,14 @@ static int cmd_lebpkg_search(const char *term) {
         return 1;
     }
 
+    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
     found = 0;
-    for (i = 0; i < MAX_REPOS; i++) {
-        snprintf(idx_path, sizeof(idx_path), "%s/index_%d.json", LEBPKG_CONF_DIR, i);
-        if (read_file_contents(idx_path, buf, MAX_RESP_SIZE) <= 0) continue;
-
-        npkgs = parse_pkg_index(buf, pkgs, MAX_PACKAGES);
-        if (npkgs == 0) {
-            fprintf(stderr, "lebpkg: warning: index %d has no packages (first char: 0x%02x)\n",
-                    i, (unsigned char)buf[0]);
-        }
-        for (j = 0; j < npkgs; j++) {
-            if (strstr(pkgs[j].name, term) ||
-                strstr(pkgs[j].description, term)) {
-                printf("  %-20s %-10s %s\n",
-                       pkgs[j].name, pkgs[j].version, pkgs[j].description);
-                found++;
-            }
+    for (j = 0; j < npkgs; j++) {
+        if (strstr(pkgs[j].name, term) ||
+            strstr(pkgs[j].description, term)) {
+            printf("%s/%s\n  %s\n",
+                   pkgs[j].name, pkgs[j].version, pkgs[j].description);
+            found++;
         }
     }
 
@@ -570,7 +734,7 @@ static int cmd_lebpkg_install(const char *pkg) {
     }
 
     for (i = 0; i < nrepos; i++) {
-        snprintf(url, sizeof(url), "%s/%s/%s/%s.lpkg",
+        snprintf(url, sizeof(url), "%s/%s/%s/packages/%s.lpkg",
                  repos[i].base_url, repos[i].ver, repos[i].scope, pkg);
         printf("Downloading %s...\n", url);
 
@@ -720,13 +884,11 @@ static int cmd_lebpkg_remove(const char *pkg) {
 
 static int cmd_lebpkg_info(const char *pkg) {
     char db_path[MAX_URL_LEN];
-    char idx_path[MAX_URL_LEN];
     char *buf;
     int rd;
     int installed;
     pkg_entry_t *pkgs;
     int npkgs;
-    int i;
     int j;
 
     installed = 0;
@@ -748,33 +910,29 @@ static int cmd_lebpkg_info(const char *pkg) {
     rd = read_file_contents(db_path, buf, 4096);
     if (rd > 0) installed = 1;
 
-    for (i = 0; i < MAX_REPOS; i++) {
-        snprintf(idx_path, sizeof(idx_path), "%s/index_%d.json", LEBPKG_CONF_DIR, i);
-        if (read_file_contents(idx_path, buf, MAX_RESP_SIZE) <= 0) continue;
-        npkgs = parse_pkg_index(buf, pkgs, MAX_PACKAGES);
-        for (j = 0; j < npkgs; j++) {
-            if (strcmp(pkgs[j].name, pkg) == 0) {
-                printf("Name:        %s\n", pkgs[j].name);
-                printf("Version:     %s\n", pkgs[j].version);
-                printf("Description: %s\n", pkgs[j].description);
-                if (pkgs[j].author[0])
-                    printf("Author:      %s\n", pkgs[j].author);
-                if (pkgs[j].license[0])
-                    printf("License:     %s\n", pkgs[j].license);
-                if (pkgs[j].depends[0])
-                    printf("Depends:     %s\n", pkgs[j].depends);
-                if (pkgs[j].arch[0])
-                    printf("Arch:        %s\n", pkgs[j].arch);
-                printf("Installed:   %s\n", installed ? "yes" : "no");
-                if (installed) {
-                    rd = read_file_contents(db_path, buf, 4096);
-                    if (rd > 0)
-                        printf("Files:\n%s\n", buf);
-                }
-                free(pkgs);
-                free(buf);
-                return 0;
+    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
+    for (j = 0; j < npkgs; j++) {
+        if (strcmp(pkgs[j].name, pkg) == 0) {
+            printf("Name:        %s\n", pkgs[j].name);
+            printf("Version:     %s\n", pkgs[j].version);
+            printf("Description: %s\n", pkgs[j].description);
+            if (pkgs[j].author[0])
+                printf("Author:      %s\n", pkgs[j].author);
+            if (pkgs[j].license[0])
+                printf("License:     %s\n", pkgs[j].license);
+            if (pkgs[j].depends[0])
+                printf("Depends:     %s\n", pkgs[j].depends);
+            if (pkgs[j].arch[0])
+                printf("Arch:        %s\n", pkgs[j].arch);
+            printf("Installed:   %s\n", installed ? "yes" : "no");
+            if (installed) {
+                rd = read_file_contents(db_path, buf, 4096);
+                if (rd > 0)
+                    printf("Files:\n%s\n", buf);
             }
+            free(pkgs);
+            free(buf);
+            return 0;
         }
     }
 

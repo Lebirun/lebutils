@@ -28,6 +28,9 @@ LIBC_A = $(LIBC)/leblibc/build-i386/lib/libc.a
 LD_SCRIPT = $(LIBC)/user.ld
 
 SYSROOT_BIN = ../../root/bin
+SYSROOT_SBIN = ../../root/sbin
+
+SBIN_APPS = mount umount lebnet lebpkg
 
 SRCDIR = src
 
@@ -83,6 +86,15 @@ CONFIG_DEFINES += -DCONFIG_CMD_LEBPKG
 endif
 ifeq ($(COMMAND_SYSCALL),y)
 CONFIG_DEFINES += -DCONFIG_CMD_SYSCALL
+endif
+ifeq ($(COMMAND_MOUNT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_MOUNT
+endif
+ifeq ($(COMMAND_UMOUNT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_UMOUNT
+endif
+ifeq ($(COMMAND_PANIC),y)
+CONFIG_DEFINES += -DCONFIG_CMD_PANIC
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -142,6 +154,15 @@ endif
 ifeq ($(COMMAND_SYSCALL),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_syscall.c
 endif
+ifeq ($(COMMAND_MOUNT),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_mount.c
+endif
+ifeq ($(COMMAND_UMOUNT),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_umount.c
+endif
+ifeq ($(COMMAND_PANIC),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_panic.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -199,6 +220,15 @@ endif
 ifeq ($(COMMAND_SYSCALL),y)
 BIN_TARGETS += syscall
 endif
+ifeq ($(COMMAND_MOUNT),y)
+BIN_TARGETS += mount
+endif
+ifeq ($(COMMAND_UMOUNT),y)
+BIN_TARGETS += umount
+endif
+ifeq ($(COMMAND_PANIC),y)
+BIN_TARGETS += panic
+endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
 
@@ -239,10 +269,14 @@ lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(
 
 stage: all
 	$(Q)mkdir -p $(SYSROOT_BIN)
+	$(Q)mkdir -p $(SYSROOT_SBIN)
 	$(Q)cp lebcu.bin $(SYSROOT_BIN)/lebcu
 	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebcu
-	@for app in $(filter-out lebcu,$(BIN_TARGETS)); do \
+	@for app in $(filter-out lebcu $(SBIN_APPS),$(BIN_TARGETS)); do \
 		ln -sf lebcu $(SYSROOT_BIN)/$$app; \
+	done
+	@for app in $(SBIN_APPS); do \
+		ln -sf ../bin/lebcu $(SYSROOT_SBIN)/$$app; \
 	done
 
 clean:

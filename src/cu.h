@@ -74,6 +74,15 @@ int cmd_lebpkg(int argc, char **argv);
 #ifdef CONFIG_CMD_SYSCALL
 int cmd_syscall(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_MOUNT
+int cmd_mount(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_UMOUNT
+int cmd_umount(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_PANIC
+int cmd_panic(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);
