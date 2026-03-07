@@ -30,7 +30,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg
+SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4
 
 SRCDIR = src
 
@@ -95,6 +95,15 @@ CONFIG_DEFINES += -DCONFIG_CMD_UMOUNT
 endif
 ifeq ($(COMMAND_PANIC),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PANIC
+endif
+ifeq ($(COMMAND_LTXTEDIT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LTXTEDIT
+endif
+ifeq ($(COMMAND_LDISKUTIL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LDISKUTIL
+endif
+ifeq ($(COMMAND_LFORMAT_EXT4),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LFORMAT_EXT4
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -163,6 +172,15 @@ endif
 ifeq ($(COMMAND_PANIC),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_panic.c
 endif
+ifeq ($(COMMAND_LTXTEDIT),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ltxtedit.c
+endif
+ifeq ($(COMMAND_LDISKUTIL),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ldiskutil.c
+endif
+ifeq ($(COMMAND_LFORMAT_EXT4),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_ext4.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -228,6 +246,15 @@ BIN_TARGETS += umount
 endif
 ifeq ($(COMMAND_PANIC),y)
 BIN_TARGETS += panic
+endif
+ifeq ($(COMMAND_LTXTEDIT),y)
+BIN_TARGETS += ltxtedit
+endif
+ifeq ($(COMMAND_LDISKUTIL),y)
+BIN_TARGETS += ldiskutil
+endif
+ifeq ($(COMMAND_LFORMAT_EXT4),y)
+BIN_TARGETS += lformat.ext4
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))

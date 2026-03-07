@@ -83,6 +83,15 @@ int cmd_umount(int argc, char **argv);
 #ifdef CONFIG_CMD_PANIC
 int cmd_panic(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_LTXTEDIT
+int cmd_ltxtedit(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_LDISKUTIL
+int cmd_ldiskutil(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_LFORMAT_EXT4
+int cmd_lformat_ext4(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

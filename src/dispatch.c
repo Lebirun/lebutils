@@ -71,6 +71,15 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_PANIC
     {"panic", cmd_panic},
 #endif
+#ifdef CONFIG_CMD_LTXTEDIT
+    {"ltxtedit", cmd_ltxtedit},
+#endif
+#ifdef CONFIG_CMD_LDISKUTIL
+    {"ldiskutil", cmd_ldiskutil},
+#endif
+#ifdef CONFIG_CMD_LFORMAT_EXT4
+    {"lformat.ext4", cmd_lformat_ext4},
+#endif
     {NULL, NULL}
 };
 

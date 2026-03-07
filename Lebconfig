@@ -18,6 +18,8 @@ subcategory "Software" {
         item type=bool name="lebpkg" default=enable id=lebpkg alias="COMMAND_LEBPKG" help="Enable the 'lebpkg' command - Lebirun package manager for installing, removing and managing .lpkg packages"
         item type=bool name="mount" default=enable id=mount alias="COMMAND_MOUNT" help="Enable the 'mount' command - mounts filesystems"
         item type=bool name="umount" default=enable id=umount alias="COMMAND_UMOUNT" help="Enable the 'umount' command - umounts filesystems"
+        item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility with interactive fdisk-style interface for MBR and GPT tables"
+        item type=bool name="lformat.ext4" default=enable id=lformat_ext4 alias="COMMAND_LFORMAT_EXT4" help="Enable the 'lformat.ext4' command - format a block device or partition with ext4 filesystem"
     }
     subcategory "Networking" {
         item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command - HTTP client for GET/POST requests with headers and basic auth"
@@ -26,5 +28,10 @@ subcategory "Software" {
     subcategory "Debug" {
         item type=bool name="syscall" default=disable id=syscall alias="COMMAND_SYSCALL" help="Enable the 'syscall' command - debug tool for testing kernel syscalls (getrandom, raw invoke)"
         item type=bool name="panic" default=disable id=panic alias="COMMAND_PANIC" help="Enable the 'panic' command - debug tool to trigger kernel panics (custom, OOM, assert, generic)"
+    }
+    subcategory "Misc" {
+        subcategory "Text Editors" {
+            item type=bool name="ltxtedit" default=enable id=ltxtedit alias="COMMAND_LTXTEDIT" help="Enable the 'ltxtedit' text editor - lightweight terminal text editor with tabs, search/replace, line numbers, and command palette"
+        }
     }
 }
