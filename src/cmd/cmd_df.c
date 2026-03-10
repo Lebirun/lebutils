@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/statvfs.h>
 #include "cu.h"
 
 #define UNIT_KB 0
@@ -30,6 +31,7 @@ int cmd_df(int argc, char **argv) {
     unsigned int used_kb = 0;
     unsigned int avail_kb = 0;
     const char *blk_hdr;
+    struct statvfs stfs;
 
     unit_mode = UNIT_KB;
     show_help = 0;
@@ -125,68 +127,57 @@ int cmd_df(int argc, char **argv) {
         opts[opt_idx] = '\0';
 
         if (dev_idx > 0 && mnt_idx > 0) {
-            if (strcmp(fstype, "procfs") == 0 || strcmp(fstype, "devfs") == 0) {
-
-            } else if (strcmp(fstype, "ramfs") == 0) {
-                size_kb = 4096;
-                used_kb = 256;
-                avail_kb = 3840;
-            } else if (strcmp(fstype, "initrd") == 0) {
-                size_kb = 8192;
-                used_kb = 2048;
-                avail_kb = 6144;
-            } else if (strcmp(fstype, "ext4") == 0) {
-                size_kb = 1048576;
-                used_kb = 153600;
-                avail_kb = 870400;
-            } else {
-                size_kb = 102400;
-                used_kb = 10240;
-                avail_kb = 92160;
+            size_kb = 0;
+            used_kb = 0;
+            avail_kb = 0;
+            if (statvfs(mountpoint, &stfs) == 0 && stfs.f_frsize > 0 && stfs.f_blocks > 0) {
+                size_kb = (unsigned int)(stfs.f_blocks * (stfs.f_frsize / 1024));
+                avail_kb = (unsigned int)(stfs.f_bavail * (stfs.f_frsize / 1024));
+                used_kb = size_kb - avail_kb;
             }
             
-            if (strcmp(fstype, "procfs") != 0 && strcmp(fstype, "devfs") != 0) {
+            {
                 unsigned int use_pct = size_kb ? (used_kb * 100 / size_kb) : 0;
                 switch (unit_mode) {
                 case UNIT_MB: {
-                    unsigned int s_i = size_kb / 1000;
-                    unsigned int s_d = (size_kb % 1000) / 100;
-                    unsigned int u_i = used_kb / 1000;
-                    unsigned int u_d = (used_kb % 1000) / 100;
-                    unsigned int a_i = avail_kb / 1000;
-                    unsigned int a_d = (avail_kb % 1000) / 100;
+                    unsigned int s_i = size_kb / 1024;
+                    unsigned int s_d = (size_kb % 1024) * 10 / 1024;
+                    unsigned int u_i = used_kb / 1024;
+                    unsigned int u_d = (used_kb % 1024) * 10 / 1024;
+                    unsigned int a_i = avail_kb / 1024;
+                    unsigned int a_d = (avail_kb % 1024) * 10 / 1024;
                     printf("%-15s %6u.%u MB %6u.%u MB %6u.%u MB %5u%% %s\n",
                            device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
                     break;
                 }
                 case UNIT_GB: {
-                    unsigned int s_i = size_kb / 1000000;
-                    unsigned int s_d = (size_kb % 1000000) / 10000;
-                    unsigned int u_i = used_kb / 1000000;
-                    unsigned int u_d = (used_kb % 1000000) / 10000;
-                    unsigned int a_i = avail_kb / 1000000;
-                    unsigned int a_d = (avail_kb % 1000000) / 10000;
+                    unsigned int s_i = size_kb / 1048576;
+                    unsigned int s_d = (size_kb % 1048576) * 100 / 1048576;
+                    unsigned int u_i = used_kb / 1048576;
+                    unsigned int u_d = (used_kb % 1048576) * 100 / 1048576;
+                    unsigned int a_i = avail_kb / 1048576;
+                    unsigned int a_d = (avail_kb % 1048576) * 100 / 1048576;
                     printf("%-15s %5u.%02u GB %5u.%02u GB %5u.%02u GB %5u%% %s\n",
                            device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
                     break;
                 }
                 case UNIT_HUMAN: {
-                    if (size_kb >= 1000000) {
-                        unsigned int s_i = size_kb / 1000000;
-                        unsigned int s_d = (size_kb % 1000000) / 10000;
-                        unsigned int u_i = used_kb / 1000000;
-                        unsigned int u_d = (used_kb % 1000000) / 10000;
-                        unsigned int a_i = avail_kb / 1000000;
-                        unsigned int a_d = (avail_kb % 1000000) / 10000;
+                    if (size_kb >= 1048576) {
+                        unsigned int s_i = size_kb / 1048576;
+                        unsigned int s_d = (size_kb % 1048576) * 100 / 1048576;
+                        unsigned int u_i = used_kb / 1048576;
+                        unsigned int u_d = (used_kb % 1048576) * 100 / 1048576;
+                        unsigned int a_i = avail_kb / 1048576;
+                        unsigned int a_d = (avail_kb % 1048576) * 100 / 1048576;
                         printf("%-15s %5u.%02u GB %5u.%02u GB %5u.%02u GB %5u%% %s\n",
                                device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
-                    } else if (size_kb >= 1000) {
-                        unsigned int s_i = size_kb / 1000;
-                        unsigned int s_d = (size_kb % 1000) / 100;
-                        unsigned int u_i = used_kb / 1000;
-                        unsigned int u_d = (used_kb % 1000) / 100;
-                        unsigned int a_i = avail_kb / 1000;
-                        unsigned int a_d = (avail_kb % 1000) / 100;
+                    } else if (size_kb >= 1024) {
+                        unsigned int s_i = size_kb / 1024;
+                        unsigned int s_d = (size_kb % 1024) * 10 / 1024;
+                        unsigned int u_i = used_kb / 1024;
+                        unsigned int u_d = (used_kb % 1024) * 10 / 1024;
+                        unsigned int a_i = avail_kb / 1024;
+                        unsigned int a_d = (avail_kb % 1024) * 10 / 1024;
                         printf("%-15s %6u.%u MB %6u.%u MB %6u.%u MB %5u%% %s\n",
                                device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
                     } else {

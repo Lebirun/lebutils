@@ -30,7 +30,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4
+SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel
 
 SRCDIR = src
 
@@ -104,6 +104,15 @@ CONFIG_DEFINES += -DCONFIG_CMD_LDISKUTIL
 endif
 ifeq ($(COMMAND_LFORMAT_EXT4),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LFORMAT_EXT4
+endif
+ifeq ($(COMMAND_PASSWD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_PASSWD
+endif
+ifeq ($(COMMAND_USERADD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_USERADD
+endif
+ifeq ($(COMMAND_USERDEL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_USERDEL
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -181,6 +190,15 @@ endif
 ifeq ($(COMMAND_LFORMAT_EXT4),y)
 COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_ext4.c
 endif
+ifeq ($(COMMAND_PASSWD),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_passwd.c
+endif
+ifeq ($(COMMAND_USERADD),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_useradd.c
+endif
+ifeq ($(COMMAND_USERDEL),y)
+COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_userdel.c
+endif
 
 COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
 
@@ -255,6 +273,15 @@ BIN_TARGETS += ldiskutil
 endif
 ifeq ($(COMMAND_LFORMAT_EXT4),y)
 BIN_TARGETS += lformat.ext4
+endif
+ifeq ($(COMMAND_PASSWD),y)
+BIN_TARGETS += passwd
+endif
+ifeq ($(COMMAND_USERADD),y)
+BIN_TARGETS += useradd
+endif
+ifeq ($(COMMAND_USERDEL),y)
+BIN_TARGETS += userdel
 endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))

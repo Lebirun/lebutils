@@ -1077,7 +1077,7 @@ int cmd_ltxtedit(int argc, char **argv) {
     }
 
     ltxt_enable_raw();
-    ltxt_puts("\x1b[r\x1b[2J\x1b[H");
+    ltxt_puts("\x1b[?1049h\x1b[r\x1b[2J\x1b[H");
     E.title_dirty = 1;
 
     while (E.running) {
@@ -1088,7 +1088,7 @@ int cmd_ltxtedit(int argc, char **argv) {
         ltxt_process_key(key);
     }
 
-    ltxt_puts("\x1b[2J\x1b[H");
+    ltxt_puts("\x1b[?1049l\x1b[2J\x1b[H");
     ltxt_disable_raw();
 
     for (i = 0; i < E.num_tabs; i++) {

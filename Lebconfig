@@ -21,6 +21,11 @@ subcategory "Software" {
         item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility with interactive fdisk-style interface for MBR and GPT tables"
         item type=bool name="lformat.ext4" default=enable id=lformat_ext4 alias="COMMAND_LFORMAT_EXT4" help="Enable the 'lformat.ext4' command - format a block device or partition with ext4 filesystem"
     }
+    subcategory "User Management" {
+        item type=bool name="passwd" default=enable id=passwd alias="COMMAND_PASSWD" help="Enable the 'passwd' command - change user passwords"
+        item type=bool name="useradd" default=enable id=useradd alias="COMMAND_USERADD" help="Enable the 'useradd' command - create new user accounts (requires root)"
+        item type=bool name="userdel" default=enable id=userdel alias="COMMAND_USERDEL" help="Enable the 'userdel' command - delete user accounts (requires root)"
+    }
     subcategory "Networking" {
         item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command - HTTP client for GET/POST requests with headers and basic auth"
         item type=bool name="lebnet" default=enable id=lebnet alias="COMMAND_LEBNET" help="Enable the 'lebnet' command - network management tool (DHCP, DNS configuration, interface info)"

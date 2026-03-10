@@ -1534,6 +1534,7 @@ static int ld_tui(const char *devpath) {
     S.running = 1;
 
     ld_enable_raw();
+    ld_puts("\x1b[?1049h");
     ld_clear_screen();
     ld_draw_all();
 
@@ -1545,6 +1546,7 @@ static int ld_tui(const char *devpath) {
         if (S.running) ld_draw_all();
     }
 
+    ld_puts("\x1b[?1049l");
     ld_clear_screen();
     ld_show_cursor();
     ld_reset_color();

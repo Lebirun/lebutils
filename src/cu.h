@@ -92,6 +92,15 @@ int cmd_ldiskutil(int argc, char **argv);
 #ifdef CONFIG_CMD_LFORMAT_EXT4
 int cmd_lformat_ext4(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_PASSWD
+int cmd_passwd(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_USERADD
+int cmd_useradd(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_USERDEL
+int cmd_userdel(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

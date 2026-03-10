@@ -80,6 +80,15 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LFORMAT_EXT4
     {"lformat.ext4", cmd_lformat_ext4},
 #endif
+#ifdef CONFIG_CMD_PASSWD
+    {"passwd", cmd_passwd},
+#endif
+#ifdef CONFIG_CMD_USERADD
+    {"useradd", cmd_useradd},
+#endif
+#ifdef CONFIG_CMD_USERDEL
+    {"userdel", cmd_userdel},
+#endif
     {NULL, NULL}
 };
 
