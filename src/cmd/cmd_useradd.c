@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "cu.h"
 
 #define PASSWD_FILE  "/etc/passwd"
@@ -138,16 +139,22 @@ static int ua_append_file(const char *path, const char *line)
 {
     int fd;
     int len;
+    int written;
 
     fd = open(path, O_WRONLY | O_APPEND);
     if (fd < 0) {
         vfs_create(path, 0644);
         fd = open(path, O_WRONLY | O_APPEND);
-        if (fd < 0) return -1;
+        if (fd < 0) {
+            fprintf(stderr, "useradd: open failed for %s (errno=%d)\n", path, errno);
+            return -1;
+        }
     }
 
     len = strlen(line);
-    if (write(fd, line, len) != len) {
+    written = (int)write(fd, line, len);
+    if (written != len) {
+        fprintf(stderr, "useradd: write failed for %s (wrote %d of %d, errno=%d)\n", path, written, len, errno);
         close(fd);
         return -1;
     }
