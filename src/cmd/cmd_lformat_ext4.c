@@ -181,8 +181,20 @@ typedef struct {
 } __attribute__((packed)) lf_dirent_t;
 
 static int lf_write_block(int fd, uint32_t block, const uint8_t *data) {
-    lseek(fd, (off_t)block * BLOCK_SIZE, SEEK_SET);
-    return vfs_write_fd(fd, data, BLOCK_SIZE);
+    int ret;
+    off_t pos;
+
+    pos = lseek(fd, (off_t)block * BLOCK_SIZE, SEEK_SET);
+    if (pos < 0) {
+        fprintf(stderr, "lformat.ext4: lseek to block %u failed (%d)\n", block, (int)pos);
+        return -1;
+    }
+    ret = vfs_write_fd(fd, data, BLOCK_SIZE);
+    if (ret != BLOCK_SIZE) {
+        fprintf(stderr, "lformat.ext4: write block %u failed (got %d)\n", block, ret);
+        return -1;
+    }
+    return ret;
 }
 
 static void lf_gen_uuid(uint8_t *uuid) {
@@ -390,7 +402,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
         free_blocks += gd.bg_free_blocks_count_lo;
 
         memset(block_buf, 0, BLOCK_SIZE);
-        lseek(fd, (off_t)(blk + 1) * BLOCK_SIZE + g * 32, SEEK_SET);
+        lseek(fd, (off_t)BLOCK_SIZE + (off_t)g * 32, SEEK_SET);
         vfs_write_fd(fd, &gd, 32);
 
         memset(block_buf, 0, BLOCK_SIZE);
@@ -443,7 +455,23 @@ int cmd_lformat_ext4(int argc, char **argv) {
     inode.i_extra_isize = 28;
 
     memcpy(block_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE, &inode, sizeof(inode));
-    lf_write_block(fd, it_block, block_buf);
+    if (lf_write_block(fd, it_block, block_buf) < 0) {
+        printf("lformat.ext4: FATAL: failed to write root inode to block %u\n", it_block);
+        vfs_close_fd(fd);
+        return 1;
+    }
+    /* Verify the write - read back and check the root inode mode */
+    {
+        static uint8_t verify_buf[BLOCK_SIZE];
+        lseek(fd, (off_t)it_block * BLOCK_SIZE, SEEK_SET);
+        vfs_read_fd(fd, verify_buf, BLOCK_SIZE);
+        lf_inode_t *ri = (lf_inode_t *)(verify_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE);
+        if (ri->i_mode == 0) {
+            printf("lformat.ext4: WARNING: readback of root inode shows mode=0! Write may have failed.\n");
+        } else {
+            printf("lformat.ext4: root inode written ok (mode=0x%04x)\n", ri->i_mode);
+        }
+    }
 
     memset(block_buf, 0, BLOCK_SIZE);
     dot = (lf_dirent_t *)block_buf;

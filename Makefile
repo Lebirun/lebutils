@@ -16,14 +16,15 @@ endif
 
 LIBC = ../../libc
 LIBC_ABS = $(abspath $(LIBC))
+SYSROOT = ../../sysroot
 
 CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -Os -fomit-frame-pointer -nostdinc -ffunction-sections -fdata-sections
-CPPFLAGS = -isystem $(LIBC)/leblibc/include -isystem $(LIBC)/leblibc/build-x86_64/obj/include -isystem $(LIBC)/leblibc/arch/x86_64 -isystem $(LIBC)/leblibc/arch/generic -I$(LIBC)/include -I$(LIBC)/src -I./src -I./src/cmd -I./src/wrap
+CPPFLAGS = -isystem $(SYSROOT)/usr/include -isystem $(LIBC)/leblibc/arch/x86_64 -isystem $(LIBC)/leblibc/arch/generic -I$(LIBC)/include -I$(LIBC)/src -I./src -I./src/cmd -I./src/wrap
 
-CRT1 = $(LIBC)/leblibc/build-x86_64/lib/crt1.o
-CRTI = $(LIBC)/leblibc/build-x86_64/lib/crti.o
-CRTN = $(LIBC)/leblibc/build-x86_64/lib/crtn.o
-LIBC_A = $(LIBC)/leblibc/build-x86_64/lib/libc.a
+CRT1 = $(SYSROOT)/usr/lib/crt1.o
+CRTI = $(SYSROOT)/usr/lib/crti.o
+CRTN = $(SYSROOT)/usr/lib/crtn.o
+LIBC_A = $(SYSROOT)/usr/lib/libc.a
 
 LD_SCRIPT = $(LIBC)/user.ld
 
@@ -316,10 +317,10 @@ $(LEB_LSYSCALLS_OBJ): $(LEB_LSYSCALLS_SRC)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
-	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-x86_64/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 %.bin: $(SRCDIR)/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
-	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(LIBC)/leblibc/build-x86_64/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 stage: all
 	$(Q)mkdir -p $(SYSROOT_BIN)
