@@ -32,6 +32,17 @@ typedef struct {
 } __attribute__((packed)) http_get_req_t;
 
 typedef struct {
+    const char *url;
+    uint64_t *out_buffer;
+    uint64_t *out_size;
+    int *status_code;
+    int max_redirects;
+    uint8_t *headers_buf;
+    uint64_t headers_buf_size;
+    uint64_t *out_headers_len;
+} __attribute__((packed)) http_get_alloc_req_t;
+
+typedef struct {
     char name[64];
     char version[32];
     char description[128];
@@ -78,6 +89,26 @@ static int http_get(const char *url, uint8_t *buf, uint64_t bufsz,
     req.headers_buf_size = 0;
     req.out_headers_len = &hdr_len;
     return (int)leb_syscall1(LEB_SYSCALL_NET_HTTP_GET, (long)&req);
+}
+
+static int http_get_alloc(const char *url, uint8_t **out_buf, uint64_t *out_size,
+                          int *status) {
+    http_get_alloc_req_t req;
+    uint64_t buf_addr;
+
+    buf_addr = 0;
+    req.url = url;
+    req.out_buffer = &buf_addr;
+    req.out_size = out_size;
+    req.status_code = status;
+    req.max_redirects = 5;
+    req.headers_buf = NULL;
+    req.headers_buf_size = 0;
+    req.out_headers_len = NULL;
+    if ((int)leb_syscall1(LEB_SYSCALL_NET_HTTP_GET_ALLOC, (long)&req) < 0)
+        return -1;
+    *out_buf = (uint8_t *)buf_addr;
+    return 0;
 }
 
 static int read_file_contents(const char *path, char *buf, unsigned int bufsz) {
@@ -727,37 +758,30 @@ static int cmd_lebpkg_install(const char *pkg) {
         return 1;
     }
 
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) {
-        fprintf(stderr, "lebpkg: out of memory\n");
-        return 1;
-    }
-
     for (i = 0; i < nrepos; i++) {
         snprintf(url, sizeof(url), "%s/%s/%s/packages/%s.lpkg",
                  repos[i].base_url, repos[i].ver, repos[i].scope, pkg);
         printf("Downloading %s...\n", url);
 
+        buf = NULL;
         got = 0;
         status = 0;
-        ret = http_get(url, buf, MAX_RESP_SIZE, &got, &status);
-        if (ret >= 0 && status == 200 && got > 0) {
-            printf("Downloaded %u bytes, extracting...\n", got);
+        ret = http_get_alloc(url, &buf, &got, &status);
+        if (ret < 0 || status != 200 || !buf || got == 0)
+            continue;
 
-            if (extract_lpkg(buf, got, pkg) < 0) {
-                fprintf(stderr, "lebpkg: failed to extract package '%s'\n", pkg);
-                free(buf);
-                return 1;
-            }
+        printf("Downloaded %u bytes, extracting...\n", (unsigned int)got);
 
-            printf("Package '%s' installed successfully.\n", pkg);
-            free(buf);
-            return 0;
+        if (extract_lpkg(buf, (uint32_t)got, pkg) < 0) {
+            fprintf(stderr, "lebpkg: failed to extract package '%s'\n", pkg);
+            return 1;
         }
+
+        printf("Package '%s' installed successfully.\n", pkg);
+        return 0;
     }
 
     fprintf(stderr, "lebpkg: package '%s' not found in any repository\n", pkg);
-    free(buf);
     return 1;
 }
 
