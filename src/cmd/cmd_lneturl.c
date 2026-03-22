@@ -12,23 +12,23 @@
 typedef struct {
     const char *url;
     uint8_t *buffer;
-    uint32_t buffer_size;
-    uint32_t *out_size;
+    uint64_t buffer_size;
+    uint64_t *out_size;
     int *status_code;
     int max_redirects;
     uint8_t *headers_buf;
-    uint32_t headers_buf_size;
-    uint32_t *out_headers_len;
+    uint64_t headers_buf_size;
+    uint64_t *out_headers_len;
 } __attribute__((packed)) http_get_req_t;
 
 typedef struct {
     const char *url;
     const char *content_type;
     const uint8_t *post_body;
-    uint32_t post_body_len;
+    uint64_t post_body_len;
     uint8_t *buffer;
-    uint32_t buffer_size;
-    uint32_t *out_size;
+    uint64_t buffer_size;
+    uint64_t *out_size;
     int *status_code;
 } __attribute__((packed)) http_post_req_t;
 
@@ -95,9 +95,9 @@ static void print_progress(uint32_t received, uint32_t total) {
     }
 }
 
-static int do_get(const char *url, uint8_t *buf, uint32_t bufsz,
-                  uint32_t *got, int *status, int max_redirects,
-                  uint8_t *hdr_buf, uint32_t hdr_buf_sz, uint32_t *hdr_len) {
+static int do_get(const char *url, uint8_t *buf, uint64_t bufsz,
+                  uint64_t *got, int *status, int max_redirects,
+                  uint8_t *hdr_buf, uint64_t hdr_buf_sz, uint64_t *hdr_len) {
     http_get_req_t req;
     int ret;
 
@@ -115,9 +115,9 @@ static int do_get(const char *url, uint8_t *buf, uint32_t bufsz,
 }
 
 static int do_post(const char *url, const char *ct,
-                   const uint8_t *body, uint32_t body_len,
-                   uint8_t *buf, uint32_t bufsz,
-                   uint32_t *got, int *status) {
+                   const uint8_t *body, uint64_t body_len,
+                   uint8_t *buf, uint64_t bufsz,
+                   uint64_t *got, int *status) {
     http_post_req_t req;
     int ret;
 
@@ -149,8 +149,8 @@ int cmd_lneturl(int argc, char **argv) {
     int i;
     uint8_t *resp_buf;
     uint8_t *hdr_buf;
-    uint32_t downloaded;
-    uint32_t hdr_len;
+    uint64_t downloaded;
+    uint64_t hdr_len;
     int status_code;
     int ret;
     char auth_hdr[256];
@@ -299,7 +299,7 @@ int cmd_lneturl(int argc, char **argv) {
     if (strcmp(method, "POST") == 0) {
         ret = do_post(url, content_type,
                       postdata ? (const uint8_t *)postdata : NULL,
-                      postdata ? (uint32_t)strlen(postdata) : 0,
+                      postdata ? (uint64_t)strlen(postdata) : 0,
                       resp_buf, MAX_RESPONSE_SIZE,
                       &downloaded, &status_code);
     } else if (strcmp(method, "GET") == 0) {
@@ -323,7 +323,7 @@ int cmd_lneturl(int argc, char **argv) {
 
     if (verbose && !silent) {
         fprintf(stderr, "< HTTP status: %d\n", status_code);
-        fprintf(stderr, "< Received: %u bytes\n", downloaded);
+        fprintf(stderr, "< Received: %lu bytes\n", (unsigned long)downloaded);
     }
 
     if (show_headers && hdr_buf && hdr_len > 0) {
@@ -339,7 +339,7 @@ int cmd_lneturl(int argc, char **argv) {
     }
 
     if (show_progress) {
-        print_progress(downloaded, downloaded);
+        print_progress((uint32_t)downloaded, (uint32_t)downloaded);
         fprintf(stderr, "\n");
     }
 

@@ -22,13 +22,13 @@
 typedef struct {
     const char *url;
     uint8_t *buffer;
-    uint32_t buffer_size;
-    uint32_t *out_size;
+    uint64_t buffer_size;
+    uint64_t *out_size;
     int *status_code;
     int max_redirects;
     uint8_t *headers_buf;
-    uint32_t headers_buf_size;
-    uint32_t *out_headers_len;
+    uint64_t headers_buf_size;
+    uint64_t *out_headers_len;
 } __attribute__((packed)) http_get_req_t;
 
 typedef struct {
@@ -62,10 +62,10 @@ static void print_usage(void) {
     fprintf(stderr, "  help              Show this help\n");
 }
 
-static int http_get(const char *url, uint8_t *buf, uint32_t bufsz,
-                    uint32_t *got, int *status) {
+static int http_get(const char *url, uint8_t *buf, uint64_t bufsz,
+                    uint64_t *got, int *status) {
     http_get_req_t req;
-    uint32_t hdr_len;
+    uint64_t hdr_len;
 
     hdr_len = 0;
     req.url = url;
@@ -568,7 +568,7 @@ static int cmd_lebpkg_update(void) {
     int i;
     int c;
     uint8_t *buf;
-    uint32_t got;
+    uint64_t got;
     int status;
     char url[MAX_URL_LEN];
     char idx_path[MAX_URL_LEN];
@@ -716,7 +716,7 @@ static int cmd_lebpkg_install(const char *pkg) {
     int nrepos;
     int i;
     uint8_t *buf;
-    uint32_t got;
+    uint64_t got;
     int status;
     char url[MAX_URL_LEN];
     int ret;
