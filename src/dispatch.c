@@ -89,6 +89,15 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_USERDEL
     {"userdel", cmd_userdel},
 #endif
+#ifdef CONFIG_CMD_CHMOD
+    {"chmod", cmd_chmod},
+#endif
+#ifdef CONFIG_CMD_CHOWN
+    {"chown", cmd_chown},
+#endif
+#ifdef CONFIG_CMD_LKE
+    {"lke", cmd_lke},
+#endif
     {NULL, NULL}
 };
 

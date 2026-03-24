@@ -10,7 +10,7 @@ static int show_line_numbers = 0;
 static int cat_one(const char *arg) {
     char path[256];
     int fd, rd, line, at_line_start, i;
-    unsigned int size, type;
+    uint64_t size, type;
     char buf[256];
     char last_char;
 

@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel
+SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel lke
 
 SRCDIR = src
 
@@ -115,100 +115,118 @@ endif
 ifeq ($(COMMAND_USERDEL),y)
 CONFIG_DEFINES += -DCONFIG_CMD_USERDEL
 endif
+ifeq ($(COMMAND_CHMOD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CHMOD
+endif
+ifeq ($(COMMAND_CHOWN),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CHOWN
+endif
+ifeq ($(COMMAND_LKE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LKE
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
-COREUTILS_SRCS = \
-	$(SRCDIR)/coreutils.c \
+LEBUTILS_SRCS = \
+	$(SRCDIR)/lebutils.c \
 	$(SRCDIR)/main.c \
 	$(SRCDIR)/dispatch.c \
 	$(SRCDIR)/argv0.c \
 	$(SRCDIR)/path.c
 
 ifeq ($(COMMAND_CAT),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_cat.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_cat.c
 endif
 ifeq ($(COMMAND_ECHO),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_echo.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_echo.c
 endif
 ifeq ($(COMMAND_LS),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ls.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ls.c
 endif
 ifeq ($(COMMAND_MKDIR),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_mkdir.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_mkdir.c
 endif
 ifeq ($(COMMAND_PWD),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_pwd.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_pwd.c
 endif
 ifeq ($(COMMAND_RM),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_rm.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_rm.c
 endif
 ifeq ($(COMMAND_TOUCH),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_touch.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_touch.c
 endif
 ifeq ($(COMMAND_CRES),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_cres.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_cres.c
 endif
 ifeq ($(COMMAND_FREE),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_free.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_free.c
 endif
 ifeq ($(COMMAND_DF),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_df.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_df.c
 endif
 ifeq ($(COMMAND_UNAME),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_uname.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_uname.c
 endif
 ifeq ($(COMMAND_DATE),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_date.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_date.c
 endif
 ifeq ($(COMMAND_LNETURL),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
 endif
 ifeq ($(COMMAND_LEBNET),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebnet.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebnet.c
 endif
 ifeq ($(COMMAND_LEBPKG),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebpkg.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebpkg.c
 endif
 ifeq ($(COMMAND_SYSCALL),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_syscall.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_syscall.c
 endif
 ifeq ($(COMMAND_MOUNT),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_mount.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_mount.c
 endif
 ifeq ($(COMMAND_UMOUNT),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_umount.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_umount.c
 endif
 ifeq ($(COMMAND_PANIC),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_panic.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_panic.c
 endif
 ifeq ($(COMMAND_LTXTEDIT),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ltxtedit.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ltxtedit.c
 endif
 ifeq ($(COMMAND_LDISKUTIL),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_ldiskutil.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ldiskutil.c
 endif
 ifeq ($(COMMAND_LFORMAT_EXT4),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_ext4.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_ext4.c
 endif
 ifeq ($(COMMAND_PASSWD),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_passwd.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_passwd.c
 endif
 ifeq ($(COMMAND_USERADD),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_useradd.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_useradd.c
 endif
 ifeq ($(COMMAND_USERDEL),y)
-COREUTILS_SRCS += $(SRCDIR)/cmd/cmd_userdel.c
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_userdel.c
+endif
+ifeq ($(COMMAND_CHMOD),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_chmod.c
+endif
+ifeq ($(COMMAND_CHOWN),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_chown.c
+endif
+ifeq ($(COMMAND_LKE),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lke.c
 endif
 
-COREUTILS_OBJS = $(COREUTILS_SRCS:.c=.o)
+COREUTILS_OBJS = $(LEBUTILS_SRCS:.c=.o)
 
 LEB_SYSCALLS_SRC = $(LIBC)/src/syscalls.c
 LEB_SYSCALLS_OBJ = $(SRCDIR)/syscalls_vfs.o
 LEB_LSYSCALLS_SRC = $(LIBC)/src/leb_syscalls.c
 LEB_LSYSCALLS_OBJ = $(SRCDIR)/leb_syscalls.o
 
-BIN_TARGETS := lebcu
+BIN_TARGETS := lebu
 ifeq ($(COMMAND_CAT),y)
 BIN_TARGETS += cat
 endif
@@ -284,6 +302,15 @@ endif
 ifeq ($(COMMAND_USERDEL),y)
 BIN_TARGETS += userdel
 endif
+ifeq ($(COMMAND_CHMOD),y)
+BIN_TARGETS += chmod
+endif
+ifeq ($(COMMAND_CHOWN),y)
+BIN_TARGETS += chown
+endif
+ifeq ($(COMMAND_LKE),y)
+BIN_TARGETS += lke
+endif
 
 PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
 
@@ -293,7 +320,7 @@ all: $(PROGRAMS)
 
 showconfig:
 	@echo "Using config: $(CONFIG_FILE)"
-	@echo "Enabled commands: $(filter-out lebcu,$(BIN_TARGETS))"
+	@echo "Enabled commands: $(filter-out lebu,$(BIN_TARGETS))"
 	@echo "Config defines: $(CONFIG_DEFINES)"
 
 lebconfig:
@@ -316,7 +343,7 @@ $(LEB_SYSCALLS_OBJ): $(LEB_SYSCALLS_SRC)
 $(LEB_LSYSCALLS_OBJ): $(LEB_LSYSCALLS_SRC)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+lebu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
 	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 %.bin: $(SRCDIR)/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
@@ -325,13 +352,13 @@ lebcu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(
 stage: all
 	$(Q)mkdir -p $(SYSROOT_BIN)
 	$(Q)mkdir -p $(SYSROOT_SBIN)
-	$(Q)cp lebcu.bin $(SYSROOT_BIN)/lebcu
-	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebcu
-	@for app in $(filter-out lebcu $(SBIN_APPS),$(BIN_TARGETS)); do \
-		ln -sf lebcu $(SYSROOT_BIN)/$$app; \
+	$(Q)cp lebu.bin $(SYSROOT_BIN)/lebu
+	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebu
+	@for app in $(filter-out lebu $(SBIN_APPS),$(BIN_TARGETS)); do \
+		ln -sf lebu $(SYSROOT_BIN)/$$app; \
 	done
 	@for app in $(SBIN_APPS); do \
-		ln -sf ../bin/lebcu $(SYSROOT_SBIN)/$$app; \
+		ln -sf ../bin/lebu $(SYSROOT_SBIN)/$$app; \
 	done
 
 clean:

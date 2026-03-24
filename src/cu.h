@@ -1,6 +1,8 @@
 #ifndef CU_H
 #define CU_H
 
+#include <stdint.h>
+
 unsigned int getticks(void);
 
 int vfs_open(const char *path, int flags);
@@ -8,7 +10,7 @@ int vfs_close_fd(int fd);
 int vfs_read_fd(int fd, void *buf, unsigned int count);
 int vfs_write_fd(int fd, const void *buf, unsigned int count);
 int vfs_readdir(int fd, char *name, unsigned int *type, unsigned int index);
-int vfs_stat(int fd, unsigned int *size, unsigned int *type);
+int vfs_stat(int fd, uint64_t *size, uint64_t *type);
 int vfs_create(const char *path, unsigned int perms);
 int vfs_mkdir(const char *path, unsigned int perms);
 int vfs_unlink(const char *path);
@@ -100,6 +102,15 @@ int cmd_useradd(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_USERDEL
 int cmd_userdel(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_CHMOD
+int cmd_chmod(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_CHOWN
+int cmd_chown(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_LKE
+int cmd_lke(int argc, char **argv);
 #endif
 
 const char *cu_basename(const char *path);

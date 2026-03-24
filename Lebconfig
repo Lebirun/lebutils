@@ -1,15 +1,20 @@
-title "Lebirun Coreutils"
-desc "Coreutils made for Lebirun"
+title "Lebutils"
+desc "Various tools for Lebirun"
 
 subcategory "Software" {
+    subcategory "System" {
+        item type=bool name="lke" default=enable id=lke alias="COMMAND_LKE" help="Enable the 'lke' command - load, unload, and list Lebirun Kernel Extensions"
+    }
     subcategory "Utilities" {
-        item type=bool name="cat" default=enable id=cat alias="COMMAND_CAT" help="Enable the 'cat' command - concatenates and displays file contents"
+        item type=bool name="cat" default=enable id=cat alias="COMMAND_CAT" help="Enable the 'cat' command - displays file contents"
         item type=bool name="echo" default=enable id=echo alias="COMMAND_ECHO" help="Enable the 'echo' command - prints arguments to standard output"
         item type=bool name="ls" default=enable id=ls alias="COMMAND_LS" help="Enable the 'ls' command - lists directory contents with details like size, permissions, and color support"
         item type=bool name="mkdir" default=enable id=mkdir alias="COMMAND_MKDIR" help="Enable the 'mkdir' command - creates directories, including parents if needed"
         item type=bool name="pwd" default=enable id=pwd alias="COMMAND_PWD" help="Enable the 'pwd' command - prints the current working directory path"
         item type=bool name="rm" default=enable id=rm alias="COMMAND_RM" help="Enable the 'rm' command - removes files or directories, with recursive and force options"
         item type=bool name="touch" default=enable id=touch alias="COMMAND_TOUCH" help="Enable the 'touch' command - creates empty files or updates file timestamps"
+        item type=bool name="chmod" default=enable id=chmod alias="COMMAND_CHMOD" help="Enable the 'chmod' command - changes file permission bits"
+        item type=bool name="chown" default=enable id=chown alias="COMMAND_CHOWN" help="Enable the 'chown' command - changes file owner and group"
         item type=bool name="cres" default=enable id=cres alias="COMMAND_CRES" help="Enable the 'cres' command - allows changing screen resolution, refresh rate, and display settings in TTY mode"
         item type=bool name="free" default=enable id=free alias="COMMAND_FREE" help="Enable the 'free' command - displays system memory usage statistics (total, used, free)"
         item type=bool name="df" default=enable id=df alias="COMMAND_DF" help="Enable the 'df' command - reports filesystem disk space usage for all mounted filesystems"
@@ -18,7 +23,7 @@ subcategory "Software" {
         item type=bool name="lebpkg" default=enable id=lebpkg alias="COMMAND_LEBPKG" help="Enable the 'lebpkg' command - Lebirun package manager for installing, removing and managing .lpkg packages"
         item type=bool name="mount" default=enable id=mount alias="COMMAND_MOUNT" help="Enable the 'mount' command - mounts filesystems"
         item type=bool name="umount" default=enable id=umount alias="COMMAND_UMOUNT" help="Enable the 'umount' command - umounts filesystems"
-        item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility with interactive fdisk-style interface for MBR and GPT tables"
+        item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility"
         item type=bool name="lformat.ext4" default=enable id=lformat_ext4 alias="COMMAND_LFORMAT_EXT4" help="Enable the 'lformat.ext4' command - format a block device or partition with ext4 filesystem"
     }
     subcategory "User Management" {
@@ -27,16 +32,16 @@ subcategory "Software" {
         item type=bool name="userdel" default=enable id=userdel alias="COMMAND_USERDEL" help="Enable the 'userdel' command - delete user accounts (requires root)"
     }
     subcategory "Networking" {
-        item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command - HTTP client for GET/POST requests with headers and basic auth"
-        item type=bool name="lebnet" default=enable id=lebnet alias="COMMAND_LEBNET" help="Enable the 'lebnet' command - network management tool (DHCP, DNS configuration, interface info)"
+        item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command"
+        item type=bool name="lebnet" default=enable id=lebnet alias="COMMAND_LEBNET" help="Enable the 'lebnet' command - network management tool"
     }
     subcategory "Debug" {
-        item type=bool name="syscall" default=disable id=syscall alias="COMMAND_SYSCALL" help="Enable the 'syscall' command - debug tool for testing kernel syscalls (getrandom, raw invoke)"
-        item type=bool name="panic" default=disable id=panic alias="COMMAND_PANIC" help="Enable the 'panic' command - debug tool to trigger kernel panics (custom, OOM, assert, generic)"
+        item type=bool name="syscall" default=disable id=syscall alias="COMMAND_SYSCALL" help="Enable the 'syscall' command - debug tool for testing kernel syscalls"
+        item type=bool name="panic" default=disable id=panic alias="COMMAND_PANIC" help="Enable the 'panic' command - debug tool to trigger kernel panics"
     }
     subcategory "Misc" {
         subcategory "Text Editors" {
-            item type=bool name="ltxtedit" default=enable id=ltxtedit alias="COMMAND_LTXTEDIT" help="Enable the 'ltxtedit' text editor - lightweight terminal text editor with tabs, search/replace, line numbers, and command palette"
+            item type=bool name="ltxtedit" default=enable id=ltxtedit alias="COMMAND_LTXTEDIT" help="Enable the 'ltxtedit' text editor - lightweight terminal text editor"
         }
     }
 }

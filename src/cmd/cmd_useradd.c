@@ -305,6 +305,8 @@ int cmd_useradd(int argc, char **argv)
     if (create_home) {
         if (vfs_mkdir(home_dir, 0755) < 0) {
             fprintf(stderr, "useradd: warning: could not create home directory '%s'\n", home_dir);
+        } else {
+            chown(home_dir, uid, gid);
         }
     }
 

@@ -11,7 +11,8 @@ int cmd_ls(int argc, char **argv) {
     const char *arg, *p;
     char path[256];
     int fd;
-    unsigned int size, type, entry_type, col, idx;
+    uint64_t size, type;
+    unsigned int entry_type, col, idx;
     char name[64];
     const char *type_str;
 

@@ -358,8 +358,8 @@ static int ld_scan_disk(ld_disk_t *disk) {
     int ret;
     int i;
     int stat_fd;
-    unsigned int dev_size;
-    unsigned int dev_type;
+    uint64_t dev_size;
+    uint64_t dev_type;
 
     memset(disk->parts, 0, sizeof(disk->parts));
     disk->part_count = 0;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <lebirun.h>
 #include "cu.h"
 
@@ -60,12 +61,51 @@ typedef struct {
 
 static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz);
 
+static int confirm_yn(const char *prompt) {
+    char c;
+    printf("%s [Y/n] ", prompt);
+    fflush(stdout);
+    c = (char)getchar();
+    if (c == '\n' || c == 'Y' || c == 'y') return 1;
+    while (c != '\n' && c != EOF) c = (char)getchar();
+    return 0;
+}
+
+static int lookup_pkg_deps(const char *pkg, char *deps, int deps_size) {
+    char *buf;
+    pkg_entry_t *pkgs;
+    int npkgs;
+    int j;
+
+    deps[0] = '\0';
+    buf = malloc(MAX_RESP_SIZE);
+    if (!buf) return -1;
+    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
+    if (!pkgs) { free(buf); return -1; }
+    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
+    for (j = 0; j < npkgs; j++) {
+        if (strcmp(pkgs[j].name, pkg) == 0) {
+            if (pkgs[j].depends[0]) {
+                strncpy(deps, pkgs[j].depends, (size_t)(deps_size - 1));
+                deps[deps_size - 1] = '\0';
+            }
+            free(pkgs);
+            free(buf);
+            return 0;
+        }
+    }
+    free(pkgs);
+    free(buf);
+    return -1;
+}
+
 static void print_usage(void) {
     fprintf(stderr, "Usage: lebpkg <command> [options]\n");
     fprintf(stderr, "Commands:\n");
     fprintf(stderr, "  install <pkg>     Install a package\n");
     fprintf(stderr, "  install -f <file> Install from local .lpkg file\n");
     fprintf(stderr, "  remove <pkg>      Remove an installed package\n");
+    fprintf(stderr, "  upgrade <pkg>     Upgrade an installed package\n");
     fprintf(stderr, "  list              List installed packages\n");
     fprintf(stderr, "  update            Update package index\n");
     fprintf(stderr, "  search <term>     Search for packages\n");
@@ -751,10 +791,21 @@ static int cmd_lebpkg_install(const char *pkg) {
     int status;
     char url[MAX_URL_LEN];
     int ret;
+    char deps[128];
 
     nrepos = load_repos(repos, MAX_REPOS);
     if (nrepos == 0) {
         fprintf(stderr, "lebpkg: no repositories configured\n");
+        return 1;
+    }
+
+    if (lookup_pkg_deps(pkg, deps, sizeof(deps)) == 0 && deps[0]) {
+        printf("Dependencies: %s\n", deps);
+    }
+
+    printf("Package: %s\n", pkg);
+    if (!confirm_yn("Install?")) {
+        printf("Aborted.\n");
         return 1;
     }
 
@@ -787,8 +838,8 @@ static int cmd_lebpkg_install(const char *pkg) {
 
 static int cmd_lebpkg_install_file(const char *path) {
     int rd;
-    unsigned int fsize;
-    unsigned int ftype;
+    uint64_t fsize;
+    uint64_t ftype;
     int fd;
     uint8_t *buf;
     unsigned int total;
@@ -882,6 +933,13 @@ static int cmd_lebpkg_remove(const char *pkg) {
     rd = read_file_contents(db_path, buf, 4096);
     if (rd <= 0) {
         fprintf(stderr, "lebpkg: package '%s' is not installed\n", pkg);
+        free(buf);
+        return 1;
+    }
+
+    printf("Package: %s\n", pkg);
+    if (!confirm_yn("Remove?")) {
+        printf("Aborted.\n");
         free(buf);
         return 1;
     }
@@ -983,6 +1041,10 @@ int cmd_lebpkg(int argc, char **argv) {
     }
 
     if (strcmp(argv[1], "install") == 0) {
+        if (getuid() != 0) {
+            fprintf(stderr, "lebpkg: install requires root\n");
+            return 1;
+        }
         if (argc < 3) {
             fprintf(stderr, "Usage: lebpkg install <package>\n");
             fprintf(stderr, "       lebpkg install -f <file.lpkg>\n");
@@ -999,11 +1061,29 @@ int cmd_lebpkg(int argc, char **argv) {
     }
 
     if (strcmp(argv[1], "remove") == 0) {
+        if (getuid() != 0) {
+            fprintf(stderr, "lebpkg: remove requires root\n");
+            return 1;
+        }
         if (argc < 3) {
             fprintf(stderr, "Usage: lebpkg remove <package>\n");
             return 1;
         }
         return cmd_lebpkg_remove(argv[2]);
+    }
+
+    if (strcmp(argv[1], "upgrade") == 0) {
+        if (getuid() != 0) {
+            fprintf(stderr, "lebpkg: upgrade requires root\n");
+            return 1;
+        }
+        if (argc < 3) {
+            fprintf(stderr, "Usage: lebpkg upgrade <package>\n");
+            return 1;
+        }
+        printf("Upgrading %s...\n", argv[2]);
+        cmd_lebpkg_remove(argv[2]);
+        return cmd_lebpkg_install(argv[2]);
     }
 
     if (strcmp(argv[1], "list") == 0)

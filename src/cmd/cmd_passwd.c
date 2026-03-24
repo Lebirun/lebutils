@@ -291,71 +291,72 @@ static int pw_update_shadow(const char *username, const char *new_hash)
     int fd_out;
     char buf[MAX_LINE];
     char field[MAX_FIELD];
+    char lines[16][MAX_LINE];
+    int line_count;
     int pos;
     int r;
     char c;
     char newline[MAX_LINE];
     int nlen;
     int found;
+    int i;
 
     fd_in = open(SHADOW_FILE, O_RDONLY);
     if (fd_in < 0) return -1;
 
-    vfs_create(SHADOW_TMP, 0600);
-    fd_out = open(SHADOW_TMP, O_WRONLY | O_TRUNC);
-    if (fd_out < 0) {
-        close(fd_in);
-        return -1;
-    }
-
+    line_count = 0;
     found = 0;
     pos = 0;
     for (;;) {
         r = read(fd_in, &c, 1);
         if (r <= 0) {
-            if (pos > 0) {
+            if (pos > 0 && line_count < 16) {
                 buf[pos] = '\0';
                 if (pw_parse_field(buf, 0, field, sizeof(field)) == 0 &&
                     strcmp(field, username) == 0) {
                     nlen = snprintf(newline, sizeof(newline),
-                        "%s:%s:0:0:99999:7:::\n", username, new_hash);
-                    write(fd_out, newline, nlen);
+                        "%s:%s:0:0:99999:7:::", username, new_hash);
+                    memcpy(lines[line_count], newline, nlen + 1);
                     found = 1;
                 } else {
-                    write(fd_out, buf, pos);
-                    write(fd_out, "\n", 1);
+                    memcpy(lines[line_count], buf, pos + 1);
                 }
+                line_count++;
             }
             break;
         }
         if (c == '\n') {
             buf[pos] = '\0';
-            pos = 0;
-            if (pw_parse_field(buf, 0, field, sizeof(field)) == 0 &&
-                strcmp(field, username) == 0) {
-                nlen = snprintf(newline, sizeof(newline),
-                    "%s:%s:0:0:99999:7:::\n", username, new_hash);
-                write(fd_out, newline, nlen);
-                found = 1;
-            } else {
-                write(fd_out, buf, strlen(buf));
-                write(fd_out, "\n", 1);
+            if (line_count < 16) {
+                if (pw_parse_field(buf, 0, field, sizeof(field)) == 0 &&
+                    strcmp(field, username) == 0) {
+                    nlen = snprintf(newline, sizeof(newline),
+                        "%s:%s:0:0:99999:7:::", username, new_hash);
+                    memcpy(lines[line_count], newline, nlen + 1);
+                    found = 1;
+                } else {
+                    memcpy(lines[line_count], buf, pos + 1);
+                }
+                line_count++;
             }
+            pos = 0;
         } else {
             if (pos < MAX_LINE - 1) buf[pos++] = c;
         }
     }
-
     close(fd_in);
-    close(fd_out);
 
-    if (!found) {
-        unlink(SHADOW_TMP);
-        return -1;
+    if (!found) return -1;
+
+    fd_out = open(SHADOW_FILE, O_WRONLY | O_TRUNC);
+    if (fd_out < 0) return -1;
+
+    for (i = 0; i < line_count; i++) {
+        nlen = strlen(lines[i]);
+        write(fd_out, lines[i], nlen);
+        write(fd_out, "\n", 1);
     }
-
-    unlink(SHADOW_FILE);
-    rename(SHADOW_TMP, SHADOW_FILE);
+    close(fd_out);
     return 0;
 }
 

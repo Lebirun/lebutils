@@ -3,15 +3,15 @@
 #include "cu.h"
 
 static void cu_print_help(void) {
-    puts("Lebirun Coreutils Help");
+    puts("Lebirun Lebutils Help");
     puts("");
     puts("Commands:");
     cu_print_commands();
     puts("");
-    puts("Lebcu Options:");
+    puts("Lebu Options:");
     puts("  -h, --help       show this help");
     puts("");
-    puts("Usage: lebcu <command> [args...]");
+    puts("Usage: lebu <command> [args...]");
     puts("Run <command> --help for command-specific help.");
 }
 
@@ -20,7 +20,7 @@ int cu_main(int argc, char **argv) {
 
     if (!applet || !*applet) return 1;
 
-    if (strcmp(applet, "lebcu") == 0 || strcmp(applet, "lebcu.bin") == 0) {
+    if (strcmp(applet, "lebu") == 0 || strcmp(applet, "lebu.bin") == 0) {
         if (argc < 2) {
             cu_print_help();
             return 1;

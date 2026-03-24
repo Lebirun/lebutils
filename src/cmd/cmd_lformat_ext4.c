@@ -222,8 +222,8 @@ int cmd_lformat_ext4(int argc, char **argv) {
     int rfd;
     const char *devpath;
     const char *label;
-    uint32_t dev_size;
-    uint32_t dev_type;
+    uint64_t dev_size;
+    uint64_t dev_type;
     uint32_t total_sectors;
     uint32_t total_blocks;
     uint32_t blocks_per_group;
@@ -460,7 +460,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
         vfs_close_fd(fd);
         return 1;
     }
-    /* Verify the write - read back and check the root inode mode */
+
     {
         static uint8_t verify_buf[BLOCK_SIZE];
         lseek(fd, (off_t)it_block * BLOCK_SIZE, SEEK_SET);

@@ -11,6 +11,6 @@ int main(int argc, char **argv) {
     nargv[0] = applet;
     for (i = 1; i < argc; i++) nargv[i] = argv[i];
     nargv[argc] = 0;
-    execv("/bin/lebcu", nargv);
+    execv("/bin/lebu", nargv);
     return 127;
 }
