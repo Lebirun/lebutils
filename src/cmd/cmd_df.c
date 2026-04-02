@@ -4,6 +4,21 @@
 #include <sys/statvfs.h>
 #include "cu.h"
 
+static void fmt_human(char *out, int outsz, unsigned int kb)
+{
+    if (kb >= 1048576) {
+        unsigned int i = kb / 1048576;
+        unsigned int d = (kb % 1048576) * 100 / 1048576;
+        snprintf(out, outsz, "%u.%02u GB", i, d);
+    } else if (kb >= 1024) {
+        unsigned int i = kb / 1024;
+        unsigned int d = (kb % 1024) * 10 / 1024;
+        snprintf(out, outsz, "%u.%u MB", i, d);
+    } else {
+        snprintf(out, outsz, "%u KB", kb);
+    }
+}
+
 #define UNIT_KB 0
 #define UNIT_MB 1
 #define UNIT_GB 2
@@ -126,7 +141,7 @@ int cmd_df(int argc, char **argv) {
         fstype[fs_idx] = '\0';
         opts[opt_idx] = '\0';
 
-        if (dev_idx > 0 && mnt_idx > 0) {
+        if (dev_idx > 0 && mnt_idx > 0 && strcmp(fstype, "squashfs") != 0) {
             size_kb = 0;
             used_kb = 0;
             avail_kb = 0;
@@ -162,28 +177,14 @@ int cmd_df(int argc, char **argv) {
                     break;
                 }
                 case UNIT_HUMAN: {
-                    if (size_kb >= 1048576) {
-                        unsigned int s_i = size_kb / 1048576;
-                        unsigned int s_d = (size_kb % 1048576) * 100 / 1048576;
-                        unsigned int u_i = used_kb / 1048576;
-                        unsigned int u_d = (used_kb % 1048576) * 100 / 1048576;
-                        unsigned int a_i = avail_kb / 1048576;
-                        unsigned int a_d = (avail_kb % 1048576) * 100 / 1048576;
-                        printf("%-15s %5u.%02u GB %5u.%02u GB %5u.%02u GB %5u%% %s\n",
-                               device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
-                    } else if (size_kb >= 1024) {
-                        unsigned int s_i = size_kb / 1024;
-                        unsigned int s_d = (size_kb % 1024) * 10 / 1024;
-                        unsigned int u_i = used_kb / 1024;
-                        unsigned int u_d = (used_kb % 1024) * 10 / 1024;
-                        unsigned int a_i = avail_kb / 1024;
-                        unsigned int a_d = (avail_kb % 1024) * 10 / 1024;
-                        printf("%-15s %6u.%u MB %6u.%u MB %6u.%u MB %5u%% %s\n",
-                               device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
-                    } else {
-                        printf("%-15s %8u KB %8u KB %8u KB %5u%% %s\n",
-                               device, size_kb, used_kb, avail_kb, use_pct, mountpoint);
-                    }
+                    char s_buf[32];
+                    char u_buf[32];
+                    char a_buf[32];
+                    fmt_human(s_buf, sizeof(s_buf), size_kb);
+                    fmt_human(u_buf, sizeof(u_buf), used_kb);
+                    fmt_human(a_buf, sizeof(a_buf), avail_kb);
+                    printf("%-15s %10s %10s %10s %5u%% %s\n",
+                           device, s_buf, u_buf, a_buf, use_pct, mountpoint);
                     break;
                 }
                 default:

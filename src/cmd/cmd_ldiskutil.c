@@ -860,6 +860,8 @@ static void ld_action_new(void) {
     int slot;
     int next_num;
     int i;
+    int used[4];
+    int k;
 
     if (!S.disk.is_gpt && S.disk.part_count >= 4) {
         strcpy(S.msg, " Max 4 primary partitions for MBR.");
@@ -920,10 +922,30 @@ static void ld_action_new(void) {
     }
 
     slot = S.disk.part_count;
-    next_num = 1;
-    for (i = 0; i < S.disk.part_count; i++) {
-        if (S.disk.parts[i].valid && S.disk.parts[i].number >= next_num)
-            next_num = S.disk.parts[i].number + 1;
+    if (!S.disk.is_gpt) {
+        memset(used, 0, sizeof(used));
+        for (i = 0; i < S.disk.part_count; i++) {
+            k = S.disk.parts[i].number - 1;
+            if (S.disk.parts[i].valid && k >= 0 && k < 4)
+                used[k] = 1;
+        }
+        next_num = 0;
+        for (k = 0; k < 4; k++) {
+            if (!used[k]) {
+                next_num = k + 1;
+                break;
+            }
+        }
+        if (next_num == 0) {
+            strcpy(S.msg, " No free MBR slot available.");
+            return;
+        }
+    } else {
+        next_num = 1;
+        for (i = 0; i < S.disk.part_count; i++) {
+            if (S.disk.parts[i].valid && S.disk.parts[i].number >= next_num)
+                next_num = S.disk.parts[i].number + 1;
+        }
     }
 
     S.disk.parts[slot].valid = 1;
@@ -1150,20 +1172,20 @@ static void ld_action_type(void) {
 static int ld_write_mbr(ld_disk_t *disk) {
     ld_mbr_t mbr;
     int i;
-    int j;
+    int slot;
 
     memset(&mbr, 0, sizeof(mbr));
     memcpy(mbr.bootstrap, disk->mbr_bootstrap, 446);
     mbr.signature = MBR_SIG;
 
-    j = 0;
-    for (i = 0; i < disk->part_count && j < 4; i++) {
+    for (i = 0; i < disk->part_count; i++) {
         if (!disk->parts[i].valid) continue;
-        mbr.parts[j].status = 0;
-        mbr.parts[j].type = disk->parts[i].mbr_type;
-        mbr.parts[j].lba_start = (uint32_t)disk->parts[i].start_lba;
-        mbr.parts[j].sector_count = (uint32_t)disk->parts[i].sector_count;
-        j++;
+        slot = disk->parts[i].number - 1;
+        if (slot < 0 || slot >= 4) continue;
+        mbr.parts[slot].status = 0;
+        mbr.parts[slot].type = disk->parts[i].mbr_type;
+        mbr.parts[slot].lba_start = (uint32_t)disk->parts[i].start_lba;
+        mbr.parts[slot].sector_count = (uint32_t)disk->parts[i].sector_count;
     }
 
     if (ld_disk_write(disk->devpath, 0, 1, &mbr) < SECTOR_SIZE)

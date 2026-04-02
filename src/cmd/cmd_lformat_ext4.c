@@ -292,9 +292,9 @@ int cmd_lformat_ext4(int argc, char **argv) {
     }
 
     blocks_per_group = BLOCK_SIZE * 8;
-    inodes_per_group = total_blocks / 4;
+    inodes_per_group = total_blocks / 32;
     if (inodes_per_group < 16) inodes_per_group = 16;
-    if (inodes_per_group > 8192) inodes_per_group = 8192;
+    if (inodes_per_group > 1024) inodes_per_group = 1024;
     if (inodes_per_group > (uint32_t)(BLOCK_SIZE * 8)) inodes_per_group = BLOCK_SIZE * 8;
 
     groups = (total_blocks + blocks_per_group - 1) / blocks_per_group;
@@ -435,8 +435,35 @@ int cmd_lformat_ext4(int argc, char **argv) {
         lf_write_block(fd, ib_block, block_buf);
 
         memset(block_buf, 0, BLOCK_SIZE);
-        for (bit = 0; bit < inode_table_blocks; bit++) {
-            lf_write_block(fd, it_block + bit, block_buf);
+        {
+            uint32_t batch;
+            uint32_t chunk;
+            uint32_t remain;
+            uint8_t *zbuf;
+            off_t zpos;
+
+            batch = 32;
+            zbuf = (uint8_t *)malloc(batch * BLOCK_SIZE);
+            if (zbuf) {
+                memset(zbuf, 0, batch * BLOCK_SIZE);
+                remain = inode_table_blocks;
+                chunk = 0;
+                while (remain > 0) {
+                    uint32_t n;
+                    n = remain > batch ? batch : remain;
+                    zpos = lseek(fd, (off_t)(it_block + chunk) * BLOCK_SIZE, SEEK_SET);
+                    if (zpos >= 0) {
+                        vfs_write_fd(fd, zbuf, n * BLOCK_SIZE);
+                    }
+                    chunk += n;
+                    remain -= n;
+                }
+                free(zbuf);
+            } else {
+                for (bit = 0; bit < inode_table_blocks; bit++) {
+                    lf_write_block(fd, it_block + bit, block_buf);
+                }
+            }
         }
     }
 
@@ -520,6 +547,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
         vfs_write_fd(fd, &gd0, 32);
     }
 
+    fsync(fd);
     vfs_close_fd(fd);
 
     printf("Filesystem created successfully.\n");
