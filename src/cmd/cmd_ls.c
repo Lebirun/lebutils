@@ -72,7 +72,18 @@ int cmd_ls(int argc, char **argv) {
         if (!show_all && name[0] == '.') continue;
         
         if (long_format) {
-            type_str = (entry_type & 0x02) ? "d" : "-";
+            if (entry_type == 0x02 || entry_type == 0x08)
+                type_str = "d";
+            else if (entry_type == 0x03)
+                type_str = "c";
+            else if (entry_type == 0x04)
+                type_str = "b";
+            else if (entry_type == 0x06)
+                type_str = "l";
+            else if (entry_type == 0x05)
+                type_str = "p";
+            else
+                type_str = "-";
             printf("%s  %s\n", type_str, name);
         } else {
             printf("%-16s", name);
