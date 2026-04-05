@@ -59,9 +59,9 @@ int cmd_ls(int argc, char **argv) {
     type = 0;
     if (vfs_stat(fd, &size, &type) == 0) {
         if ((type & 0x02) == 0 && (type & 0x08) == 0) {
-            printf("ls: '%s' is not a directory\n", path);
             vfs_close_fd(fd);
-            return 1;
+            puts(path);
+            return 0;
         }
     }
 

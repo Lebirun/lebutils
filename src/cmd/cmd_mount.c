@@ -93,8 +93,11 @@ int cmd_mount(int argc, char **argv) {
     ret = (int)leb_syscall4(LEB_SYSCALL_VFS_MOUNT,
                             (long)abs_source, (long)abs_target, (long)fstype, (long)flags);
     if (ret < 0) {
-        fprintf(stderr, "mount: failed to mount %s on %s (%d)\n",
-                abs_source, abs_target, ret);
+        if (ret == -2)
+            fprintf(stderr, "mount: %s: no such file or directory\n", abs_target);
+        else
+            fprintf(stderr, "mount: failed to mount %s on %s (%d)\n",
+                    abs_source, abs_target, ret);
         return 1;
     }
 
