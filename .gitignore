@@ -1,15 +1,4 @@
-*.iso
-*.qcow2
-*.img
-*.raw
-isodir/
-sysroot/
-
 *.o
-*.a
-*.so
-*.so.*
-*.lo
 *.d
 *.cmd
 *.mod*
@@ -27,16 +16,17 @@ build-*/
 *.app
 *.x86_64
 
+*.a
+*.lo
+*.so
+*.so.*
+*.ko
 *.map
 *.lst
 *.sym
-
-*.gcov
-*.gcda
-*.gcno
-
-*.ko
 *.dSYM/
+
+bin/
 
 .vscode/
 .idea/

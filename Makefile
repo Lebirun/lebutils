@@ -219,12 +219,12 @@ ifeq ($(COMMAND_LKE),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lke.c
 endif
 
-COREUTILS_OBJS = $(LEBUTILS_SRCS:.c=.o)
+COREUTILS_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(LEBUTILS_SRCS))
 
 LEB_SYSCALLS_SRC = $(LIBC)/src/syscalls.c
-LEB_SYSCALLS_OBJ = $(SRCDIR)/syscalls_vfs.o
+LEB_SYSCALLS_OBJ = build/syscalls_vfs.o
 LEB_LSYSCALLS_SRC = $(LIBC)/src/leb_syscalls.c
-LEB_LSYSCALLS_OBJ = $(SRCDIR)/leb_syscalls.o
+LEB_LSYSCALLS_OBJ = build/leb_syscalls.o
 
 BIN_TARGETS := lebu
 ifeq ($(COMMAND_CAT),y)
@@ -312,7 +312,8 @@ ifeq ($(COMMAND_LKE),y)
 BIN_TARGETS += lke
 endif
 
-PROGRAMS := $(addsuffix .bin,$(BIN_TARGETS))
+BINDIR = bin
+PROGRAMS := $(addprefix $(BINDIR)/,$(addsuffix .bin,$(BIN_TARGETS)))
 
 .PHONY: all clean stage lebconfig clean-lebconfig showconfig
 
@@ -331,28 +332,34 @@ clean-lebconfig:
 	$(MAKE) -C lebconfig clean
 
 
-%.o: %.c
+build/%.o: $(SRCDIR)/%.c
+	$(Q)mkdir -p $(dir $@)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_VFS_OBJ): $(LEB_VFS_SRC)
+	$(Q)mkdir -p $(dir $@)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_SYSCALLS_OBJ): $(LEB_SYSCALLS_SRC)
+	$(Q)mkdir -p $(dir $@)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(LEB_LSYSCALLS_OBJ): $(LEB_LSYSCALLS_SRC)
+	$(Q)mkdir -p $(dir $@)
 	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-lebu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+$(BINDIR)/lebu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(Q)mkdir -p $(BINDIR)
 	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
-%.bin: $(SRCDIR)/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+$(BINDIR)/%.bin: build/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(Q)mkdir -p $(BINDIR)
 	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
 stage: all
 	$(Q)mkdir -p $(SYSROOT_BIN)
 	$(Q)mkdir -p $(SYSROOT_SBIN)
-	$(Q)cp lebu.bin $(SYSROOT_BIN)/lebu
+	$(Q)cp $(BINDIR)/lebu.bin $(SYSROOT_BIN)/lebu
 	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebu
 	@for app in $(filter-out lebu $(SBIN_APPS),$(BIN_TARGETS)); do \
 		ln -sf lebu $(SYSROOT_BIN)/$$app; \
@@ -362,7 +369,4 @@ stage: all
 	done
 
 clean:
-	rm -f $(SRCDIR)/*.o
-	rm -f $(SRCDIR)/cmd/*.o
-	rm -f $(SRCDIR)/wrap/*.o
-	rm -f *.bin
+	rm -rf build $(BINDIR)
