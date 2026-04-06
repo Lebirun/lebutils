@@ -58,7 +58,7 @@ int cmd_ls(int argc, char **argv) {
     size = 0;
     type = 0;
     if (vfs_stat(fd, &size, &type) == 0) {
-        if ((type & 0x02) == 0 && (type & 0x08) == 0) {
+        if ((type & 0x07) != 0x02 && (type & 0x08) == 0) {
             vfs_close_fd(fd);
             puts(path);
             return 0;
