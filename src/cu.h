@@ -112,6 +112,45 @@ int cmd_chown(int argc, char **argv);
 #ifdef CONFIG_CMD_LKE
 int cmd_lke(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_CP
+int cmd_cp(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_MV
+int cmd_mv(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_HEAD
+int cmd_head(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_TAIL
+int cmd_tail(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_GREP
+int cmd_grep(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_CLEAR
+int cmd_clear(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_HOSTNAME
+int cmd_hostname(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_WHOAMI
+int cmd_whoami(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_HEXDUMP
+int cmd_hexdump(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_PS
+int cmd_ps(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_DMESG
+int cmd_dmesg(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_FILE
+int cmd_file(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_PING
+int cmd_ping(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

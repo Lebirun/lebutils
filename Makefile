@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel lke
+SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel lke ping
 
 SRCDIR = src
 
@@ -123,6 +123,45 @@ CONFIG_DEFINES += -DCONFIG_CMD_CHOWN
 endif
 ifeq ($(COMMAND_LKE),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LKE
+endif
+ifeq ($(COMMAND_CP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CP
+endif
+ifeq ($(COMMAND_MV),y)
+CONFIG_DEFINES += -DCONFIG_CMD_MV
+endif
+ifeq ($(COMMAND_HEAD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_HEAD
+endif
+ifeq ($(COMMAND_TAIL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_TAIL
+endif
+ifeq ($(COMMAND_GREP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_GREP
+endif
+ifeq ($(COMMAND_CLEAR),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CLEAR
+endif
+ifeq ($(COMMAND_HOSTNAME),y)
+CONFIG_DEFINES += -DCONFIG_CMD_HOSTNAME
+endif
+ifeq ($(COMMAND_WHOAMI),y)
+CONFIG_DEFINES += -DCONFIG_CMD_WHOAMI
+endif
+ifeq ($(COMMAND_HEXDUMP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_HEXDUMP
+endif
+ifeq ($(COMMAND_PS),y)
+CONFIG_DEFINES += -DCONFIG_CMD_PS
+endif
+ifeq ($(COMMAND_DMESG),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DMESG
+endif
+ifeq ($(COMMAND_FILE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_FILE
+endif
+ifeq ($(COMMAND_PING),y)
+CONFIG_DEFINES += -DCONFIG_CMD_PING
 endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
@@ -218,6 +257,45 @@ endif
 ifeq ($(COMMAND_LKE),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lke.c
 endif
+ifeq ($(COMMAND_CP),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_cp.c
+endif
+ifeq ($(COMMAND_MV),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_mv.c
+endif
+ifeq ($(COMMAND_HEAD),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_head.c
+endif
+ifeq ($(COMMAND_TAIL),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_tail.c
+endif
+ifeq ($(COMMAND_GREP),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_grep.c
+endif
+ifeq ($(COMMAND_CLEAR),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_clear.c
+endif
+ifeq ($(COMMAND_HOSTNAME),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_hostname.c
+endif
+ifeq ($(COMMAND_WHOAMI),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_whoami.c
+endif
+ifeq ($(COMMAND_HEXDUMP),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_hexdump.c
+endif
+ifeq ($(COMMAND_PS),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ps.c
+endif
+ifeq ($(COMMAND_DMESG),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_dmesg.c
+endif
+ifeq ($(COMMAND_FILE),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_file.c
+endif
+ifeq ($(COMMAND_PING),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ping.c
+endif
 
 COREUTILS_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(LEBUTILS_SRCS))
 
@@ -310,6 +388,45 @@ BIN_TARGETS += chown
 endif
 ifeq ($(COMMAND_LKE),y)
 BIN_TARGETS += lke
+endif
+ifeq ($(COMMAND_CP),y)
+BIN_TARGETS += cp
+endif
+ifeq ($(COMMAND_MV),y)
+BIN_TARGETS += mv
+endif
+ifeq ($(COMMAND_HEAD),y)
+BIN_TARGETS += head
+endif
+ifeq ($(COMMAND_TAIL),y)
+BIN_TARGETS += tail
+endif
+ifeq ($(COMMAND_GREP),y)
+BIN_TARGETS += grep
+endif
+ifeq ($(COMMAND_CLEAR),y)
+BIN_TARGETS += clear
+endif
+ifeq ($(COMMAND_HOSTNAME),y)
+BIN_TARGETS += hostname
+endif
+ifeq ($(COMMAND_WHOAMI),y)
+BIN_TARGETS += whoami
+endif
+ifeq ($(COMMAND_HEXDUMP),y)
+BIN_TARGETS += hexdump
+endif
+ifeq ($(COMMAND_PS),y)
+BIN_TARGETS += ps
+endif
+ifeq ($(COMMAND_DMESG),y)
+BIN_TARGETS += dmesg
+endif
+ifeq ($(COMMAND_FILE),y)
+BIN_TARGETS += file
+endif
+ifeq ($(COMMAND_PING),y)
+BIN_TARGETS += ping
 endif
 
 BINDIR = bin

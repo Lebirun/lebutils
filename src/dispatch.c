@@ -98,6 +98,45 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LKE
     {"lke", cmd_lke},
 #endif
+#ifdef CONFIG_CMD_CP
+    {"cp", cmd_cp},
+#endif
+#ifdef CONFIG_CMD_MV
+    {"mv", cmd_mv},
+#endif
+#ifdef CONFIG_CMD_HEAD
+    {"head", cmd_head},
+#endif
+#ifdef CONFIG_CMD_TAIL
+    {"tail", cmd_tail},
+#endif
+#ifdef CONFIG_CMD_GREP
+    {"grep", cmd_grep},
+#endif
+#ifdef CONFIG_CMD_CLEAR
+    {"clear", cmd_clear},
+#endif
+#ifdef CONFIG_CMD_HOSTNAME
+    {"hostname", cmd_hostname},
+#endif
+#ifdef CONFIG_CMD_WHOAMI
+    {"whoami", cmd_whoami},
+#endif
+#ifdef CONFIG_CMD_HEXDUMP
+    {"hexdump", cmd_hexdump},
+#endif
+#ifdef CONFIG_CMD_PS
+    {"ps", cmd_ps},
+#endif
+#ifdef CONFIG_CMD_DMESG
+    {"dmesg", cmd_dmesg},
+#endif
+#ifdef CONFIG_CMD_FILE
+    {"file", cmd_file},
+#endif
+#ifdef CONFIG_CMD_PING
+    {"ping", cmd_ping},
+#endif
     {NULL, NULL}
 };
 
