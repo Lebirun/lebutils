@@ -1,0 +1,8 @@
+#ifndef LEBUTILS_ABOUT_H
+#define LEBUTILS_ABOUT_H
+
+#define LEBUTILS_NAME    "lebutils"
+#define LEBUTILS_VERSION "0.1.0"
+#define LEBUTILS_BANNER  LEBUTILS_NAME " " LEBUTILS_VERSION
+
+#endif

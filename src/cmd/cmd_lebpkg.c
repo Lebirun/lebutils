@@ -99,6 +99,8 @@ static int lookup_pkg_deps(const char *pkg, char *deps, int deps_size) {
     return -1;
 }
 
+static int get_installed_version(const char *pkg, char *ver, int ver_size);
+
 static int lookup_pkg_version(const char *pkg, char *ver, int ver_size) {
     char *buf;
     pkg_entry_t *pkgs;
@@ -131,7 +133,7 @@ static void print_usage(void) {
     fprintf(stderr, "  install <pkg>     Install a package\n");
     fprintf(stderr, "  install -f <file> Install from local .lpkg file\n");
     fprintf(stderr, "  remove <pkg>      Remove an installed package\n");
-    fprintf(stderr, "  upgrade             Upgrade outdated packages\n");
+    fprintf(stderr, "  upgrade           Upgrade outdated packages\n");
     fprintf(stderr, "  list              List installed packages\n");
     fprintf(stderr, "  update            Update package index\n");
     fprintf(stderr, "  search <term>     Search for packages\n");
@@ -595,6 +597,7 @@ static int cmd_lebpkg_list(void) {
     pkg_entry_t *pkgs;
     int npkgs;
     int j;
+    char inst_ver[32];
 
     fd = vfs_open(LEBPKG_DB_DIR, 0);
     if (fd < 0) {
@@ -618,13 +621,19 @@ static int cmd_lebpkg_list(void) {
         if (vfs_readdir(fd, name, &type, idx) < 0) break;
         idx++;
         if (type != 1) continue;
+        inst_ver[0] = '\0';
+        get_installed_version(name, inst_ver, sizeof(inst_ver));
         for (j = 0; j < npkgs; j++) {
             if (strcmp(pkgs[j].name, name) == 0) break;
         }
-        if (j < npkgs)
-            printf("%s/%s [installed]\n  %s\n", name, pkgs[j].version, pkgs[j].description);
+        if (inst_ver[0])
+            printf("%s/%s [installed]", name, inst_ver);
         else
-            printf("%s [installed]\n", name);
+            printf("%s [installed]", name);
+        if (j < npkgs && pkgs[j].description[0])
+            printf("\n  %s\n", pkgs[j].description);
+        else
+            putchar('\n');
         count++;
     }
     vfs_close_fd(fd);

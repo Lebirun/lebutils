@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include "cu.h"
+#include "about.h"
 
 static void cu_print_help(void) {
-    puts("Lebirun Lebutils Help");
+    puts("Lebirun " LEBUTILS_BANNER);
     puts("");
     puts("Commands:");
     cu_print_commands();
@@ -27,6 +28,10 @@ int cu_main(int argc, char **argv) {
         }
         if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
             cu_print_help();
+            return 0;
+        }
+        if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) {
+            puts(LEBUTILS_VERSION);
             return 0;
         }
         return cu_dispatch(argc - 1, argv + 1);

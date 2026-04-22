@@ -18,7 +18,7 @@ LIBC = ../../libc
 LIBC_ABS = $(abspath $(LIBC))
 SYSROOT = ../../sysroot
 
-CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -Os -fomit-frame-pointer -nostdinc -ffunction-sections -fdata-sections
+CFLAGS = -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -Os -fomit-frame-pointer -nostdinc -ffunction-sections -fdata-sections -fdiagnostics-color=always
 CPPFLAGS = -isystem $(SYSROOT)/usr/include -isystem $(LIBC)/leblibc/arch/x86_64 -isystem $(LIBC)/leblibc/arch/generic -I$(LIBC)/include -I$(LIBC)/src -I./src -I./src/cmd -I./src/wrap
 
 CRT1 = $(SYSROOT)/usr/lib/crt1.o
