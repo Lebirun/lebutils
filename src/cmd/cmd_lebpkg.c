@@ -51,6 +51,7 @@ typedef struct {
     char license[32];
     char depends[128];
     char arch[16];
+    char category[32];
 } pkg_entry_t;
 
 typedef struct {
@@ -117,6 +118,31 @@ static int lookup_pkg_version(const char *pkg, char *ver, int ver_size) {
         if (strcmp(pkgs[j].name, pkg) == 0) {
             strncpy(ver, pkgs[j].version, (size_t)(ver_size - 1));
             ver[ver_size - 1] = '\0';
+            free(pkgs);
+            free(buf);
+            return 0;
+        }
+    }
+    free(pkgs);
+    free(buf);
+    return -1;
+}
+
+static int lookup_pkg_entry(const char *pkg, pkg_entry_t *out) {
+    char *buf;
+    pkg_entry_t *pkgs;
+    int npkgs;
+    int j;
+
+    memset(out, 0, sizeof(*out));
+    buf = malloc(MAX_RESP_SIZE);
+    if (!buf) return -1;
+    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
+    if (!pkgs) { free(buf); return -1; }
+    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
+    for (j = 0; j < npkgs; j++) {
+        if (strcmp(pkgs[j].name, pkg) == 0) {
+            *out = pkgs[j];
             free(pkgs);
             free(buf);
             return 0;
@@ -197,6 +223,34 @@ static int read_file_contents(const char *path, char *buf, unsigned int bufsz) {
     return (int)total;
 }
 
+static int parse_db_version(const char *buf, char *ver, int ver_size) {
+    const char *p;
+    int len;
+
+    ver[0] = '\0';
+    p = buf;
+    while (*p) {
+        if (strncmp(p, "VERSION:", 8) == 0) {
+            p += 8;
+            break;
+        }
+        if (strncmp(p, "Version:", 8) == 0) {
+            p += 8;
+            while (*p == ' ' || *p == '\t') p++;
+            break;
+        }
+        while (*p && *p != '\n') p++;
+        if (*p == '\n') p++;
+    }
+    if (!*p) return -1;
+    len = 0;
+    while (p[len] && p[len] != '\n' && p[len] != '\r' && len < ver_size - 1) len++;
+    if (len <= 0) return -1;
+    memcpy(ver, p, (size_t)len);
+    ver[len] = '\0';
+    return 0;
+}
+
 static int write_file_contents(const char *path, const char *data, unsigned int len) {
     int fd;
     int wr;
@@ -239,8 +293,7 @@ static void ensure_parent_dirs(const char *filepath) {
     }
 }
 
-static int extract_lpkg(const uint8_t *data, uint32_t len, const char *pkg_name,
-                        const char *pkg_version) {
+static int extract_lpkg(const uint8_t *data, uint32_t len, const pkg_entry_t *meta) {
     uint16_t file_count;
     uint32_t off;
     int i;
@@ -248,8 +301,10 @@ static int extract_lpkg(const uint8_t *data, uint32_t len, const char *pkg_name,
     uint32_t file_size;
     char filepath[MAX_URL_LEN];
     char db_path[MAX_URL_LEN];
-    char file_list[4096];
+    char file_list[8192];
+    char db_buf[8704];
     int list_off;
+    int db_off;
 
     if (len < 7) {
         fprintf(stderr, "lebpkg: package too small\n");
@@ -321,20 +376,30 @@ static int extract_lpkg(const uint8_t *data, uint32_t len, const char *pkg_name,
 
     vfs_mkdir(LEBPKG_CONF_DIR, 7);
     vfs_mkdir(LEBPKG_DB_DIR, 7);
-    snprintf(db_path, sizeof(db_path), "%s/%s", LEBPKG_DB_DIR, pkg_name);
-    {
-        char db_buf[4096 + 64];
-        int db_off;
-        db_off = 0;
-        if (pkg_version && pkg_version[0]) {
-            db_off = snprintf(db_buf, sizeof(db_buf), "VERSION:%s\n", pkg_version);
-        }
-        if (db_off + list_off < (int)sizeof(db_buf)) {
-            memcpy(db_buf + db_off, file_list, list_off);
-            db_off += list_off;
-        }
-        write_file_contents(db_path, db_buf, (unsigned int)db_off);
+    snprintf(db_path, sizeof(db_path), "%s/%s", LEBPKG_DB_DIR, meta->name);
+    db_off = snprintf(db_buf, sizeof(db_buf),
+                      "Package: %s\n"
+                      "Status: install ok installed\n"
+                      "Version: %s\n",
+                      meta->name,
+                      meta->version[0] ? meta->version : "unknown");
+    if (meta->depends[0] && db_off < (int)sizeof(db_buf))
+        db_off += snprintf(db_buf + db_off, sizeof(db_buf) - db_off, "Depends: %s\n", meta->depends);
+    if (meta->category[0] && db_off < (int)sizeof(db_buf))
+        db_off += snprintf(db_buf + db_off, sizeof(db_buf) - db_off, "Section: %s\n", meta->category);
+    if (meta->license[0] && db_off < (int)sizeof(db_buf))
+        db_off += snprintf(db_buf + db_off, sizeof(db_buf) - db_off, "License: %s\n", meta->license);
+    if (meta->description[0] && db_off < (int)sizeof(db_buf))
+        db_off += snprintf(db_buf + db_off, sizeof(db_buf) - db_off, "Description: %s\n", meta->description);
+    if (db_off < (int)sizeof(db_buf))
+        db_off += snprintf(db_buf + db_off, sizeof(db_buf) - db_off, "Files:\n");
+    if (db_off + list_off < (int)sizeof(db_buf)) {
+        memcpy(db_buf + db_off, file_list, list_off);
+        db_off += list_off;
     }
+    if (db_off < (int)sizeof(db_buf) - 1)
+        db_buf[db_off++] = '\n';
+    write_file_contents(db_path, db_buf, (unsigned int)db_off);
 
     return 0;
 }
@@ -439,6 +504,8 @@ static const char *parse_pkg_object(const char *p, pkg_entry_t *pkg) {
                 p = parse_json_string(p, pkg->depends, sizeof(pkg->depends));
             else if (strcmp(key, "arch") == 0)
                 p = parse_json_string(p, pkg->arch, sizeof(pkg->arch));
+            else if (strcmp(key, "category") == 0)
+                p = parse_json_string(p, pkg->category, sizeof(pkg->category));
             else
                 p = skip_json_value(p);
         } else if (*p == '[' && strcmp(key, "depends") == 0) {
@@ -876,30 +943,28 @@ static int get_installed_version(const char *pkg, char *ver, int ver_size) {
     char db_path[MAX_URL_LEN];
     char buf[256];
     int rd;
-    const char *p;
-    int len;
 
     ver[0] = '\0';
     snprintf(db_path, sizeof(db_path), "%s/%s", LEBPKG_DB_DIR, pkg);
     rd = read_file_contents(db_path, buf, sizeof(buf));
     if (rd <= 0) return -1;
-    if (strncmp(buf, "VERSION:", 8) != 0) return -1;
-    p = buf + 8;
-    len = 0;
-    while (p[len] && p[len] != '\n' && len < ver_size - 1) len++;
-    memcpy(ver, p, (size_t)len);
-    ver[len] = '\0';
-    return 0;
+    return parse_db_version(buf, ver, ver_size);
 }
 
-static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos,
-                                    const char *version) {
+static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos) {
     int i;
     char url[MAX_URL_LEN];
     uint8_t *buf;
     uint64_t got;
     int status;
     int ret;
+    pkg_entry_t meta;
+
+    if (lookup_pkg_entry(pkg, &meta) < 0) {
+        memset(&meta, 0, sizeof(meta));
+        strncpy(meta.name, pkg, sizeof(meta.name) - 1);
+        meta.name[sizeof(meta.name) - 1] = '\0';
+    }
 
     for (i = 0; i < nrepos; i++) {
         snprintf(url, sizeof(url), "%s/%s/%s/packages/%s.lpkg",
@@ -915,7 +980,7 @@ static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos,
 
         printf("Downloaded %u bytes, extracting...\n", (unsigned int)got);
 
-        if (extract_lpkg(buf, (uint32_t)got, pkg, version) < 0) {
+        if (extract_lpkg(buf, (uint32_t)got, &meta) < 0) {
             fprintf(stderr, "lebpkg: failed to extract package '%s'\n", pkg);
             return -1;
         }
@@ -960,8 +1025,6 @@ static int cmd_lebpkg_install(const char *pkg) {
     char *p;
     char *tok;
     int i;
-    char ver[32];
-    char dep_ver[32];
 
     if (is_pkg_installed(pkg)) {
         printf("Package '%s' is already installed.\n", pkg);
@@ -979,8 +1042,6 @@ static int cmd_lebpkg_install(const char *pkg) {
         fprintf(stderr, "Try running 'lebpkg update' first.\n");
         return 1;
     }
-
-    lookup_pkg_version(pkg, ver, sizeof(ver));
 
     ndeps = 0;
     if (lookup_pkg_deps(pkg, deps, sizeof(deps)) == 0 && deps[0]) {
@@ -1015,7 +1076,7 @@ static int cmd_lebpkg_install(const char *pkg) {
         return 1;
     }
 
-    if (download_and_install_pkg(pkg, repos, nrepos, ver) < 0)
+    if (download_and_install_pkg(pkg, repos, nrepos) < 0)
         return 1;
 
     for (i = 0; i < ndeps; i++) {
@@ -1023,8 +1084,7 @@ static int cmd_lebpkg_install(const char *pkg) {
             printf("Dependency '%s' is already installed, skipping.\n", dep_list[i]);
             continue;
         }
-        lookup_pkg_version(dep_list[i], dep_ver, sizeof(dep_ver));
-        if (download_and_install_pkg(dep_list[i], repos, nrepos, dep_ver) < 0)
+        if (download_and_install_pkg(dep_list[i], repos, nrepos) < 0)
             fprintf(stderr, "lebpkg: warning: failed to install dependency '%s'\n", dep_list[i]);
     }
 
@@ -1043,6 +1103,7 @@ static int cmd_lebpkg_install_file(const char *path) {
     const char *dot;
     char pkg_name[64];
     int name_len;
+    pkg_entry_t meta;
 
     rd = strlen(path);
     if (rd < 6 || strcmp(path + rd - 5, ".lpkg") != 0) {
@@ -1096,9 +1157,14 @@ static int cmd_lebpkg_install_file(const char *path) {
     if (name_len <= 0 || name_len >= (int)sizeof(pkg_name)) name_len = (int)sizeof(pkg_name) - 1;
     memcpy(pkg_name, base, (size_t)name_len);
     pkg_name[name_len] = '\0';
+    memset(&meta, 0, sizeof(meta));
+    strncpy(meta.name, pkg_name, sizeof(meta.name) - 1);
+    meta.name[sizeof(meta.name) - 1] = '\0';
+    strncpy(meta.version, "unknown", sizeof(meta.version) - 1);
+    meta.version[sizeof(meta.version) - 1] = '\0';
 
     printf("Installing from %s (%u bytes)...\n", path, total);
-    if (extract_lpkg(buf, total, pkg_name, NULL) < 0) {
+    if (extract_lpkg(buf, total, &meta) < 0) {
         fprintf(stderr, "lebpkg: failed to extract package\n");
         free(buf);
         return 1;
@@ -1116,16 +1182,17 @@ static int remove_pkg_files(const char *pkg) {
     char *next;
     int rd;
     int removed;
+    int ret;
 
     snprintf(db_path, sizeof(db_path), "%s/%s", LEBPKG_DB_DIR, pkg);
 
-    buf = malloc(4096);
+    buf = malloc(MAX_RESP_SIZE);
     if (!buf) {
         fprintf(stderr, "lebpkg: out of memory\n");
         return 1;
     }
 
-    rd = read_file_contents(db_path, buf, 4096);
+    rd = read_file_contents(db_path, buf, MAX_RESP_SIZE);
     if (rd <= 0) {
         fprintf(stderr, "lebpkg: package '%s' is not installed\n", pkg);
         free(buf);
@@ -1146,7 +1213,14 @@ static int remove_pkg_files(const char *pkg) {
         line = next;
     }
 
-    vfs_unlink(db_path);
+    ret = vfs_unlink(db_path);
+    if (ret < 0)
+        ret = unlink(db_path);
+    if (ret < 0) {
+        fprintf(stderr, "lebpkg: failed to remove package database entry for '%s'\n", pkg);
+        free(buf);
+        return 1;
+    }
     printf("Package '%s' removed (%d files).\n", pkg, removed);
     free(buf);
     return 0;
@@ -1315,8 +1389,7 @@ static int cmd_lebpkg_upgrade(void) {
 
     for (i = 0; i < nupgrade; i++) {
         printf("Upgrading %s...\n", upgrade_list[i]);
-        remove_pkg_files(upgrade_list[i]);
-        if (download_and_install_pkg(upgrade_list[i], repos, nrepos, upgrade_vers[i]) < 0)
+        if (download_and_install_pkg(upgrade_list[i], repos, nrepos) < 0)
             fprintf(stderr, "lebpkg: warning: failed to upgrade '%s'\n", upgrade_list[i]);
     }
 
