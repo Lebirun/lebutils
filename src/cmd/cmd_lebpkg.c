@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <lebirun.h>
 #include "cu.h"
 
@@ -61,6 +62,7 @@ typedef struct {
 } repo_t;
 
 static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz);
+static void ensure_parent_dirs(const char *filepath);
 
 static int confirm_yn(const char *prompt) {
     char c;
@@ -256,8 +258,8 @@ static int write_file_contents(const char *path, const char *data, unsigned int 
     int wr;
     unsigned int total;
 
-    vfs_create(path, 6);
-    fd = vfs_open(path, 1);
+    ensure_parent_dirs(path);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) return -1;
     total = 0;
     while (total < len) {
@@ -265,7 +267,8 @@ static int write_file_contents(const char *path, const char *data, unsigned int 
         if (wr <= 0) break;
         total += (unsigned int)wr;
     }
-    vfs_close_fd(fd);
+    close(fd);
+    if (total != len) return -1;
     return (int)total;
 }
 
@@ -805,7 +808,8 @@ static int cmd_lebpkg_update(void) {
         return 1;
     }
 
-    vfs_mkdir(LEBPKG_IDX_DIR, 7);
+    vfs_mkdir(LEBPKG_CONF_DIR, 0755);
+    vfs_mkdir(LEBPKG_IDX_DIR, 0755);
 
     for (i = 0; i < nrepos; i++) {
         snprintf(url, sizeof(url), "%s/%s/%s/index/index.json",
@@ -844,7 +848,10 @@ static int cmd_lebpkg_update(void) {
 
             snprintf(idx_path, sizeof(idx_path), "%s/index/%d_%s",
                      LEBPKG_CONF_DIR, i, cat_files[c]);
-            write_file_contents(idx_path, (char *)buf, got);
+            if (write_file_contents(idx_path, (char *)buf, got) != (int)got) {
+                fprintf(stderr, "    Failed to save %s\n", idx_path);
+                continue;
+            }
             printf("    Saved (%u bytes)\n", got);
         }
     }

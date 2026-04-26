@@ -245,8 +245,15 @@ static int ltxt_buf_load(struct ltxt_buf *b, const char *path) {
     char linebuf[LTXT_MAX_LINE_LEN];
     int lpos;
 
+    strncpy(b->filename, path, sizeof(b->filename) - 1);
+    b->filename[sizeof(b->filename) - 1] = '\0';
+
     fd = vfs_open(path, 0);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        if (b->num_lines == 0)
+            ltxt_buf_insert_line(b, 0);
+        return 0;
+    }
 
     for (i = 0; i < b->num_lines; i++)
         free(b->lines[i].data);
@@ -289,9 +296,6 @@ static int ltxt_buf_load(struct ltxt_buf *b, const char *path) {
     b->scroll_y = 0;
     b->scroll_x = 0;
     b->modified = 0;
-
-    strncpy(b->filename, path, sizeof(b->filename) - 1);
-    b->filename[sizeof(b->filename) - 1] = '\0';
     return 0;
 }
 

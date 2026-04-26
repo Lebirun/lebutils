@@ -163,6 +163,12 @@ endif
 ifeq ($(COMMAND_PING),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PING
 endif
+ifeq ($(COMMAND_IPV67CLI),y)
+CONFIG_DEFINES += -DCONFIG_CMD_IPV67CLI
+endif
+ifeq ($(COMMAND_IPV67D),y)
+CONFIG_DEFINES += -DCONFIG_CMD_IPV67D
+endif
 
 CPPFLAGS += $(CONFIG_DEFINES)
 
@@ -296,6 +302,15 @@ endif
 ifeq ($(COMMAND_PING),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ping.c
 endif
+
+IPV67_CRYPTO_SRC = $(SRCDIR)/ipv67/ipv67_crypto.c
+IPV67_CRYPTO_OBJ = build/ipv67/ipv67_crypto.o
+
+IPV67CLI_SRCS = $(SRCDIR)/ipv67/cli/ipv67cli.c
+IPV67CLI_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(IPV67CLI_SRCS)) $(IPV67_CRYPTO_OBJ)
+
+IPV67D_SRCS = $(SRCDIR)/ipv67/daemon/ipv67d.c
+IPV67D_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(IPV67D_SRCS)) $(IPV67_CRYPTO_OBJ)
 
 COREUTILS_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(LEBUTILS_SRCS))
 
@@ -432,9 +447,17 @@ endif
 BINDIR = bin
 PROGRAMS := $(addprefix $(BINDIR)/,$(addsuffix .bin,$(BIN_TARGETS)))
 
+IPV67_TARGETS :=
+ifeq ($(COMMAND_IPV67CLI),y)
+IPV67_TARGETS += $(BINDIR)/ipv67cli.bin
+endif
+ifeq ($(COMMAND_IPV67D),y)
+IPV67_TARGETS += $(BINDIR)/ipv67d.bin
+endif
+
 .PHONY: all clean stage lebconfig clean-lebconfig showconfig
 
-all: $(PROGRAMS)
+all: $(PROGRAMS) $(IPV67_TARGETS)
 
 showconfig:
 	@echo "Using config: $(CONFIG_FILE)"
@@ -469,6 +492,18 @@ $(BINDIR)/lebu.bin: $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $
 	$(Q)mkdir -p $(BINDIR)
 	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(COREUTILS_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
 
+$(IPV67_CRYPTO_OBJ): $(IPV67_CRYPTO_SRC)
+	$(Q)mkdir -p $(dir $(IPV67_CRYPTO_OBJ))
+	$(MSG_CC)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(BINDIR)/ipv67cli.bin: $(IPV67CLI_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(Q)mkdir -p $(BINDIR)
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(IPV67CLI_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+
+$(BINDIR)/ipv67d.bin: $(IPV67D_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
+	$(Q)mkdir -p $(BINDIR)
+	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $(IPV67D_OBJS) $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
+
 $(BINDIR)/%.bin: build/wrap/wrap_%.o $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) $(CRT1) $(CRTI) $(CRTN) $(LIBC_A)
 	$(Q)mkdir -p $(BINDIR)
 	$(MSG_LD)$(CC) -nostdlib -static -Wl,-z,noexecstack -Wl,--gc-sections -T $(LD_SCRIPT) -L$(SYSROOT)/usr/lib -o $@ $(CRT1) $(CRTI) $< $(LEB_SYSCALLS_OBJ) $(LEB_LSYSCALLS_OBJ) -lc $(CRTN) -lgcc
@@ -484,6 +519,8 @@ stage: all
 	@for app in $(SBIN_APPS); do \
 		ln -sf ../bin/lebu $(SYSROOT_SBIN)/$$app; \
 	done
+	@[ -f $(BINDIR)/ipv67cli.bin ] && { cp $(BINDIR)/ipv67cli.bin $(SYSROOT_BIN)/ipv67cli; $(STRIP) -s $(SYSROOT_BIN)/ipv67cli; } || true
+	@[ -f $(BINDIR)/ipv67d.bin ] && { cp $(BINDIR)/ipv67d.bin $(SYSROOT_SBIN)/ipv67d; $(STRIP) -s $(SYSROOT_SBIN)/ipv67d; } || true
 
 clean:
 	rm -rf build $(BINDIR)
