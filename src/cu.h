@@ -109,8 +109,20 @@ int cmd_chmod(int argc, char **argv);
 #ifdef CONFIG_CMD_CHOWN
 int cmd_chown(int argc, char **argv);
 #endif
-#ifdef CONFIG_CMD_LKE
-int cmd_lke(int argc, char **argv);
+#ifdef CONFIG_CMD_INSMOD
+int cmd_insmod(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_RMMOD
+int cmd_rmmod(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_LSMOD
+int cmd_lsmod(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_MODINFO
+int cmd_modinfo(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_MODPROBE
+int cmd_modprobe(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_CP
 int cmd_cp(int argc, char **argv);

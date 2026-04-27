@@ -95,8 +95,20 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_CHOWN
     {"chown", cmd_chown},
 #endif
-#ifdef CONFIG_CMD_LKE
-    {"lke", cmd_lke},
+#ifdef CONFIG_CMD_INSMOD
+    {"insmod", cmd_insmod},
+#endif
+#ifdef CONFIG_CMD_RMMOD
+    {"rmmod", cmd_rmmod},
+#endif
+#ifdef CONFIG_CMD_LSMOD
+    {"lsmod", cmd_lsmod},
+#endif
+#ifdef CONFIG_CMD_MODINFO
+    {"modinfo", cmd_modinfo},
+#endif
+#ifdef CONFIG_CMD_MODPROBE
+    {"modprobe", cmd_modprobe},
 #endif
 #ifdef CONFIG_CMD_CP
     {"cp", cmd_cp},

@@ -3,7 +3,11 @@ desc "Various tools for Lebirun"
 
 subcategory "Software" {
     subcategory "System" {
-        item type=bool name="lke" default=enable id=lke alias="COMMAND_LKE" help="Enable the 'lke' command - load, unload, and list Lebirun Kernel Extensions"
+        item type=bool name="insmod" default=enable id=insmod alias="COMMAND_INSMOD" help="Enable the 'insmod' command - load a Lebirun Kernel Extension module from a path"
+        item type=bool name="rmmod" default=enable id=rmmod alias="COMMAND_RMMOD" help="Enable the 'rmmod' command - unload a loaded Lebirun Kernel Extension module by name"
+        item type=bool name="lsmod" default=enable id=lsmod alias="COMMAND_LSMOD" help="Enable the 'lsmod' command - list all currently loaded Lebirun Kernel Extension modules"
+        item type=bool name="modinfo" default=enable id=modinfo alias="COMMAND_MODINFO" help="Enable the 'modinfo' command - show metadata embedded in a Lebirun Kernel Extension module"
+        item type=bool name="modprobe" default=enable id=modprobe alias="COMMAND_MODPROBE" help="Enable the 'modprobe' command - load or unload a module by name from /lib/lke"
     }
     subcategory "Utilities" {
         item type=bool name="cat" default=enable id=cat alias="COMMAND_CAT" help="Enable the 'cat' command - displays file contents"

@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel lke ping
+SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel insmod rmmod modinfo modprobe ping dmesg
 
 SRCDIR = src
 
@@ -121,8 +121,20 @@ endif
 ifeq ($(COMMAND_CHOWN),y)
 CONFIG_DEFINES += -DCONFIG_CMD_CHOWN
 endif
-ifeq ($(COMMAND_LKE),y)
-CONFIG_DEFINES += -DCONFIG_CMD_LKE
+ifeq ($(COMMAND_INSMOD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_INSMOD
+endif
+ifeq ($(COMMAND_RMMOD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_RMMOD
+endif
+ifeq ($(COMMAND_LSMOD),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LSMOD
+endif
+ifeq ($(COMMAND_MODINFO),y)
+CONFIG_DEFINES += -DCONFIG_CMD_MODINFO
+endif
+ifeq ($(COMMAND_MODPROBE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_MODPROBE
 endif
 ifeq ($(COMMAND_CP),y)
 CONFIG_DEFINES += -DCONFIG_CMD_CP
@@ -260,8 +272,20 @@ endif
 ifeq ($(COMMAND_CHOWN),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_chown.c
 endif
-ifeq ($(COMMAND_LKE),y)
-LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lke.c
+ifeq ($(COMMAND_INSMOD),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_insmod.c
+endif
+ifeq ($(COMMAND_RMMOD),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_rmmod.c
+endif
+ifeq ($(COMMAND_LSMOD),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lsmod.c
+endif
+ifeq ($(COMMAND_MODINFO),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_modinfo.c
+endif
+ifeq ($(COMMAND_MODPROBE),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_modprobe.c
 endif
 ifeq ($(COMMAND_CP),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_cp.c
@@ -401,8 +425,20 @@ endif
 ifeq ($(COMMAND_CHOWN),y)
 BIN_TARGETS += chown
 endif
-ifeq ($(COMMAND_LKE),y)
-BIN_TARGETS += lke
+ifeq ($(COMMAND_INSMOD),y)
+BIN_TARGETS += insmod
+endif
+ifeq ($(COMMAND_RMMOD),y)
+BIN_TARGETS += rmmod
+endif
+ifeq ($(COMMAND_LSMOD),y)
+BIN_TARGETS += lsmod
+endif
+ifeq ($(COMMAND_MODINFO),y)
+BIN_TARGETS += modinfo
+endif
+ifeq ($(COMMAND_MODPROBE),y)
+BIN_TARGETS += modprobe
 endif
 ifeq ($(COMMAND_CP),y)
 BIN_TARGETS += cp
