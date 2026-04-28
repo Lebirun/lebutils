@@ -327,13 +327,13 @@ ifeq ($(COMMAND_PING),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ping.c
 endif
 
-IPV67_CRYPTO_SRC = $(SRCDIR)/ipv67/ipv67_crypto.c
-IPV67_CRYPTO_OBJ = build/ipv67/ipv67_crypto.o
+IPV67_CRYPTO_SRC = $(SRCDIR)/cmd/ipv67/ipv67_crypto.c
+IPV67_CRYPTO_OBJ = build/cmd/ipv67/ipv67_crypto.o
 
-IPV67CLI_SRCS = $(SRCDIR)/ipv67/cli/ipv67cli.c
+IPV67CLI_SRCS = $(SRCDIR)/cmd/ipv67/cli/ipv67cli.c
 IPV67CLI_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(IPV67CLI_SRCS)) $(IPV67_CRYPTO_OBJ)
 
-IPV67D_SRCS = $(SRCDIR)/ipv67/daemon/ipv67d.c
+IPV67D_SRCS = $(SRCDIR)/cmd/ipv67/daemon/ipv67d.c
 IPV67D_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(IPV67D_SRCS)) $(IPV67_CRYPTO_OBJ)
 
 COREUTILS_OBJS = $(patsubst $(SRCDIR)/%.c,build/%.o,$(LEBUTILS_SRCS))
