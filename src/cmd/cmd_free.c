@@ -121,14 +121,14 @@ int cmd_free(int argc, char **argv) {
     switch (unit_mode) {
     case UNIT_MB: {
         unsigned int t_i = mem_total / 1024;
-        unsigned int t_d = (mem_total % 1024) * 10 / 1024;
+        unsigned int t_d = (mem_total % 1024) * 100 / 1024;
         unsigned int u_i = mem_used / 1024;
-        unsigned int u_d = (mem_used % 1024) * 10 / 1024;
+        unsigned int u_d = (mem_used % 1024) * 100 / 1024;
         unsigned int a_i = mem_all_used / 1024;
-        unsigned int a_d = (mem_all_used % 1024) * 10 / 1024;
+        unsigned int a_d = (mem_all_used % 1024) * 100 / 1024;
         unsigned int f_i = mem_free / 1024;
-        unsigned int f_d = (mem_free % 1024) * 10 / 1024;
-        printf("Mem:       %6u.%u MB  %6u.%u MB  %6u.%u MB  %6u.%u MB\n", 
+        unsigned int f_d = (mem_free % 1024) * 100 / 1024;
+        printf("Mem:      %6u.%02u MB %6u.%02u MB %6u.%02u MB %6u.%02u MB\n", 
                t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
         break;
     }
