@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <lebirun.h>
 #include "../ipv67_crypto.h"
@@ -23,9 +24,14 @@
 #define IPV67_CMD_ADD_PEER_HOST 14
 #define IPV67_CMD_ADD_ENDPOINT 15
 #define IPV67_CMD_PROBE_PEERS  16
+#define IPV67_CMD_SET_AUTH_KEY 19
+#define IPV67_CMD_SET_IDENTITY_KEY 20
 
 #define IPV67_PEER_IPV4        4
 #define IPV67_PEER_IPV6        6
+#define IPV67_AUTH_KEY_SIZE    32
+#define IPV67_IDENTITY_SIZE    32
+#define IPV67_ALIAS_SIZE       16
 
 #define IPV67_ZONE_MAX    6
 #define IPV67_DOMAIN_MAX  32
@@ -49,6 +55,11 @@ typedef struct {
     unsigned char ipv6[16];
     unsigned short port;
     unsigned char family;
+    unsigned char authenticated;
+    unsigned char session_established;
+    unsigned char missed_probes;
+    char alias[IPV67_ALIAS_SIZE];
+    unsigned char public_key[IPV67_IDENTITY_SIZE];
     char addr_str[IPV67_ADDR_STR_MAX];
 } __attribute__((packed)) ipv67_peer_user_t;
 
@@ -79,8 +90,16 @@ typedef struct {
 static unsigned short ipv67_instance_port = IPV67_PORT_DEFAULT;
 
 static long ipv67_syscall(ipv67_syscall_req_t *req) {
+    long ret;
+    int i;
+
     if (req && req->arg4 == 0) req->arg4 = ipv67_instance_port;
-    return leb_syscall1(LEB_SYSCALL_IPV67, (long)req);
+    for (i = 0; i < 64; i++) {
+        ret = leb_syscall1(LEB_SYSCALL_IPV67, (long)req);
+        if (ret != -11) return ret;
+        leb_syscall1(LEB_SYSCALL_SLEEP, 10);
+    }
+    return ret;
 }
 
 static void ipv67d_log(FILE *log, const char *msg) {
@@ -269,38 +288,57 @@ static void config_init(ipv67_config_t *cfg) {
     cfg->port = IPV67_PORT_DEFAULT;
 }
 
-static int load_config(const char *path, ipv67_config_t *cfg) {
-    FILE *f;
-    char line[512];
+static void load_config_line(char *line, ipv67_config_t *cfg) {
     char *p;
     char *key;
     char *val;
 
+    p = line;
+    key = next_token(&p);
+    if (!key) return;
+    val = next_token(&p);
+    if (!val) return;
+    if (strcmp(key, "identity") == 0 || strcmp(key, "keyfile") == 0) {
+        strncpy(cfg->keyfile, val, sizeof(cfg->keyfile) - 1);
+        cfg->keyfile[sizeof(cfg->keyfile) - 1] = '\0';
+    } else if (strcmp(key, "address") == 0) {
+        strncpy(cfg->address, val, sizeof(cfg->address) - 1);
+        cfg->address[sizeof(cfg->address) - 1] = '\0';
+    } else if (strcmp(key, "port") == 0) {
+        cfg->port = atoi(val);
+        if (cfg->port <= 0 || cfg->port > 65535) cfg->port = IPV67_PORT_DEFAULT;
+    } else if (strcmp(key, "peer") == 0 && cfg->peer_count < IPV67_MAX_CONFIG_PEERS) {
+        strncpy(cfg->peer_endpoint[cfg->peer_count], val, sizeof(cfg->peer_endpoint[0]) - 1);
+        cfg->peer_endpoint[cfg->peer_count][sizeof(cfg->peer_endpoint[0]) - 1] = '\0';
+        cfg->peer_count++;
+    }
+}
+
+static int load_config(const char *path, ipv67_config_t *cfg) {
+    int fd;
+    int r;
+    int i;
+    int pos;
+    char buf[2048];
+    char line[512];
+
     config_init(cfg);
-    f = fopen(path, "r");
-    if (!f) return -1;
-    while (fgets(line, sizeof(line), f)) {
-        p = line;
-        key = next_token(&p);
-        if (!key) continue;
-        val = next_token(&p);
-        if (!val) continue;
-        if (strcmp(key, "identity") == 0 || strcmp(key, "keyfile") == 0) {
-            strncpy(cfg->keyfile, val, sizeof(cfg->keyfile) - 1);
-            cfg->keyfile[sizeof(cfg->keyfile) - 1] = '\0';
-        } else if (strcmp(key, "address") == 0) {
-            strncpy(cfg->address, val, sizeof(cfg->address) - 1);
-            cfg->address[sizeof(cfg->address) - 1] = '\0';
-        } else if (strcmp(key, "port") == 0) {
-            cfg->port = atoi(val);
-            if (cfg->port <= 0 || cfg->port > 65535) cfg->port = IPV67_PORT_DEFAULT;
-        } else if (strcmp(key, "peer") == 0 && cfg->peer_count < IPV67_MAX_CONFIG_PEERS) {
-            strncpy(cfg->peer_endpoint[cfg->peer_count], val, sizeof(cfg->peer_endpoint[0]) - 1);
-            cfg->peer_endpoint[cfg->peer_count][sizeof(cfg->peer_endpoint[0]) - 1] = '\0';
-            cfg->peer_count++;
+    fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    r = (int)read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (r < 0) return -1;
+    buf[r] = '\0';
+    pos = 0;
+    for (i = 0; i <= r; i++) {
+        if (buf[i] == '\n' || buf[i] == '\0') {
+            line[pos] = '\0';
+            load_config_line(line, cfg);
+            pos = 0;
+        } else if (pos < (int)sizeof(line) - 1) {
+            line[pos++] = buf[i];
         }
     }
-    fclose(f);
     return 0;
 }
 
@@ -347,6 +385,8 @@ static void show_usage(void) {
     puts("  -a <addr>    Set IPv67 address on startup");
     puts("  -k <keyfile> Load identity key from file (default: " IPV67_IDENTITY_KEY ")");
     puts("  -p <port>    Set IPv67 UDP port (default 6767)");
+    puts("  --peer       Run peer probing mode");
+    puts("  --manual     Disable automatic peer probes");
     puts("  -h           Show this help");
     puts("");
     puts("ipv67d runs in the foreground and should be started by the init system.");
@@ -369,10 +409,12 @@ int main(int argc, char **argv) {
     const char *keyfile;
     int load_ret;
     const char *config_path;
-    ipv67_config_t cfg;
+    static ipv67_config_t cfg;
     int config_loaded;
-    char pid_path[128];
-    char log_path[128];
+    int peer_mode;
+    int manual_mode;
+    static char pid_path[128];
+    static char log_path[128];
 
     set_addr = NULL;
     set_port = 0;
@@ -380,13 +422,19 @@ int main(int argc, char **argv) {
     config_path = IPV67_CONFIG_FILE;
     config_init(&cfg);
     config_loaded = 0;
+    peer_mode = 0;
+    manual_mode = 0;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             show_usage();
             return 0;
         }
-        if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "--peer") == 0) {
+            peer_mode = 1;
+        } else if (strcmp(argv[i], "--manual") == 0) {
+            manual_mode = 1;
+        } else if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
             set_addr = argv[++i];
         } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
             set_port = atoi(argv[++i]);
@@ -410,20 +458,11 @@ int main(int argc, char **argv) {
     if (set_port > 0) ipv67_instance_port = (unsigned short)set_port;
     else ipv67_instance_port = (unsigned short)cfg.port;
 
-    snprintf(pid_path, sizeof(pid_path), "/var/run/ipv67d-%u.pid", (unsigned int)ipv67_instance_port);
-    snprintf(log_path, sizeof(log_path), "/var/log/ipv67d-%u.log", (unsigned int)ipv67_instance_port);
+    snprintf(pid_path, sizeof(pid_path), "/var/run/ipv67d-%s-%u.pid", peer_mode ? "peer" : "node", (unsigned int)ipv67_instance_port);
+    snprintf(log_path, sizeof(log_path), "/var/log/ipv67d-%s-%u.log", peer_mode ? "peer" : "node", (unsigned int)ipv67_instance_port);
 
     log = fopen(log_path, "a");
-
-    memset(&req, 0, sizeof(req));
-    req.cmd = IPV67_CMD_INIT;
-    ret = ipv67_syscall(&req);
-    if (ret < 0) {
-        ipv67d_log(log, "ipv67d: init failed");
-        if (log) fclose(log);
-        return 1;
-    }
-    ipv67d_log(log, "ipv67d: IPv67 stack initialized");
+    ipv67d_log(log, "ipv67d: IPv67 stack selected");
 
     if (set_port > 0) {
         memset(&req, 0, sizeof(req));
@@ -432,13 +471,20 @@ int main(int argc, char **argv) {
         ipv67_syscall(&req);
     }
 
-    if (!set_addr) {
-        if (keyfile) {
-            load_ret = ipv67_load_seed_from(keyfile, seed);
-        } else {
-            load_ret = ipv67_load_seed(seed);
-        }
-        if (load_ret == 0) {
+    if (keyfile) {
+        load_ret = ipv67_load_seed_from(keyfile, seed);
+    } else {
+        load_ret = ipv67_load_seed(seed);
+    }
+    if (load_ret == 0) {
+        memset(&req, 0, sizeof(req));
+        req.cmd = IPV67_CMD_SET_IDENTITY_KEY;
+        req.arg1 = (unsigned long long)(long)seed;
+        req.arg2 = IPV67_AUTH_KEY_SIZE;
+        ret = ipv67_syscall(&req);
+        if (ret < 0) ipv67d_log(log, "ipv67d: failed to install identity key");
+        else ipv67d_log(log, "ipv67d: installed identity key");
+        if (!set_addr) {
             ipv67_derive_addr(seed, key_addr);
             set_addr = key_addr;
             ipv67d_log(log, "ipv67d: loaded identity key");
@@ -464,7 +510,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (config_loaded) {
+    if (peer_mode && config_loaded) {
         for (i = 0; i < cfg.peer_count; i++) {
             ret = add_peer_to_kernel(cfg.peer_endpoint[i]);
             if (ret < 0) ipv67d_log(log, "ipv67d: failed to add configured peer");
@@ -485,16 +531,15 @@ int main(int argc, char **argv) {
     }
 
     write_pid_file(pid_path);
-    printf("ipv67d: running (log: %s)\n", log_path);
+    printf("ipv67d: running (%s, log: %s)\n", peer_mode ? "peer" : "node", log_path);
     ipv67d_log(log, "ipv67d: started");
-    do_heartbeat(log);
 
     heartbeat_interval = 30000;
     last_heartbeat = getticks();
 
     while (1) {
         tick = getticks();
-        if (tick - last_heartbeat >= heartbeat_interval) {
+        if (peer_mode && !manual_mode && tick - last_heartbeat >= heartbeat_interval) {
             do_heartbeat(log);
             last_heartbeat = tick;
         }

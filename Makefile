@@ -166,6 +166,9 @@ endif
 ifeq ($(COMMAND_PS),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PS
 endif
+ifeq ($(COMMAND_KILL),y)
+CONFIG_DEFINES += -DCONFIG_CMD_KILL
+endif
 ifeq ($(COMMAND_DMESG),y)
 CONFIG_DEFINES += -DCONFIG_CMD_DMESG
 endif
@@ -316,6 +319,9 @@ LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_hexdump.c
 endif
 ifeq ($(COMMAND_PS),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ps.c
+endif
+ifeq ($(COMMAND_KILL),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_kill.c
 endif
 ifeq ($(COMMAND_DMESG),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_dmesg.c
@@ -469,6 +475,9 @@ BIN_TARGETS += hexdump
 endif
 ifeq ($(COMMAND_PS),y)
 BIN_TARGETS += ps
+endif
+ifeq ($(COMMAND_KILL),y)
+BIN_TARGETS += kill
 endif
 ifeq ($(COMMAND_DMESG),y)
 BIN_TARGETS += dmesg

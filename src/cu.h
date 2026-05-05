@@ -154,6 +154,9 @@ int cmd_hexdump(int argc, char **argv);
 #ifdef CONFIG_CMD_PS
 int cmd_ps(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_KILL
+int cmd_kill(int argc, char **argv);
+#endif
 #ifdef CONFIG_CMD_DMESG
 int cmd_dmesg(int argc, char **argv);
 #endif

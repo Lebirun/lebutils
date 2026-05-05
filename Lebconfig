@@ -40,6 +40,7 @@ subcategory "Software" {
         item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility"
         item type=bool name="lformat.ext4" default=enable id=lformat_ext4 alias="COMMAND_LFORMAT_EXT4" help="Enable the 'lformat.ext4' command - format a block device or partition with ext4 filesystem"
         item type=bool name="ps" default=enable id=ps alias="COMMAND_PS" help="Enable the 'ps' command - lists running processes"
+        item type=bool name="kill" default=enable id=kill alias="COMMAND_KILL" help="Enable the 'kill' command - sends signals to running processes"
         item type=bool name="dmesg" default=enable id=dmesg alias="COMMAND_DMESG" help="Enable the 'dmesg' command - prints kernel ring buffer messages"
     }
     subcategory "User Management" {

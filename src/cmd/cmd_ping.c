@@ -94,7 +94,16 @@ int cmd_ping(int argc, char **argv) {
             received++;
             printf("Reply from %s: seq=%d time=%dms\n", target, i + 1, ret);
         } else {
-            printf("Request timeout for seq %d\n", i + 1);
+            if (ret == -3) {
+                printf("Send failed for seq %d\n", i + 1);
+            } else if (ret == -4) {
+                printf("No network interface for seq %d\n", i + 1);
+            } else if (ret == -2) {
+                printf("Interrupted at seq %d\n", i + 1);
+                break;
+            } else {
+                printf("Request timeout for seq %d\n", i + 1);
+            }
         }
         if (i + 1 < count) {
             sleep_ms(1000);

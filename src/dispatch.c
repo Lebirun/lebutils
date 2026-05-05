@@ -140,6 +140,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_PS
     {"ps", cmd_ps},
 #endif
+#ifdef CONFIG_CMD_KILL
+    {"kill", cmd_kill},
+#endif
 #ifdef CONFIG_CMD_DMESG
     {"dmesg", cmd_dmesg},
 #endif

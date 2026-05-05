@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <lebirun.h>
 #include "../ipv67_crypto.h"
@@ -23,6 +25,8 @@
 #define IPV67_CMD_PROBE_PEERS  16
 #define IPV67_CMD_GET_ROUTES   17
 #define IPV67_CMD_ROUTE_COUNT  18
+#define IPV67_CMD_SET_AUTH_KEY 19
+#define IPV67_CMD_SET_IDENTITY_KEY 20
 
 #define IPV67_PEER_IPV4        4
 #define IPV67_PEER_IPV6        6
@@ -31,6 +35,8 @@
 #define IPV67_MAX_CONFIG_PEERS 32
 #define IPV67_PORT_DEFAULT     6767
 #define IPV67_ERR_TIMEOUT      -6
+#define IPV67_ALIAS_SIZE       16
+#define IPV67_IDENTITY_SIZE    32
 
 #define IPV67_ZONE_MAX    6
 #define IPV67_DOMAIN_MAX  32
@@ -50,6 +56,11 @@ typedef struct {
     unsigned char ipv6[16];
     unsigned short port;
     unsigned char family;
+    unsigned char authenticated;
+    unsigned char session_established;
+    unsigned char missed_probes;
+    char alias[IPV67_ALIAS_SIZE];
+    unsigned char public_key[IPV67_IDENTITY_SIZE];
     char addr_str[IPV67_ADDR_STR_MAX];
 } __attribute__((packed)) ipv67_peer_user_t;
 
@@ -59,6 +70,8 @@ typedef struct {
     unsigned short next_hop_port;
     unsigned char next_hop_family;
     unsigned char hops;
+    unsigned char metric;
+    unsigned int sequence;
     char dest_str[IPV67_ADDR_STR_MAX];
 } __attribute__((packed)) ipv67_route_user_t;
 
@@ -89,8 +102,16 @@ typedef struct {
 static unsigned short ipv67_instance_port = IPV67_PORT_DEFAULT;
 
 static long ipv67_syscall(ipv67_syscall_req_t *req) {
+    long ret;
+    int i;
+
     if (req && req->arg4 == 0) req->arg4 = ipv67_instance_port;
-    return leb_syscall1(LEB_SYSCALL_IPV67, (long)req);
+    for (i = 0; i < 64; i++) {
+        ret = leb_syscall1(LEB_SYSCALL_IPV67, (long)req);
+        if (ret != -11) return ret;
+        leb_syscall1(LEB_SYSCALL_SLEEP, 10);
+    }
+    return ret;
 }
 
 static void print_ipv4(unsigned int ip) {
@@ -272,55 +293,113 @@ static void ensure_config_dir(void) {
     vfs_mkdir("/etc/ipv67", 0700);
 }
 
-static int load_config(const char *path, ipv67_config_t *cfg) {
-    FILE *f;
-    char line[512];
+static int write_all_fd(int fd, const char *buf, int len) {
+    int off;
+    int ret;
+
+    off = 0;
+    while (off < len) {
+        ret = (int)write(fd, buf + off, (size_t)(len - off));
+        if (ret <= 0) return -1;
+        off += ret;
+    }
+    return 0;
+}
+
+static void load_config_line(char *line, ipv67_config_t *cfg) {
     char *p;
     char *key;
     char *val;
 
+    p = line;
+    key = next_token(&p);
+    if (!key) return;
+    val = next_token(&p);
+    if (!val) return;
+    if (strcmp(key, "identity") == 0 || strcmp(key, "keyfile") == 0) {
+        strncpy(cfg->keyfile, val, sizeof(cfg->keyfile) - 1);
+        cfg->keyfile[sizeof(cfg->keyfile) - 1] = '\0';
+    } else if (strcmp(key, "address") == 0) {
+        strncpy(cfg->address, val, sizeof(cfg->address) - 1);
+        cfg->address[sizeof(cfg->address) - 1] = '\0';
+    } else if (strcmp(key, "port") == 0) {
+        cfg->port = atoi(val);
+        if (cfg->port <= 0 || cfg->port > 65535) cfg->port = IPV67_PORT_DEFAULT;
+    } else if (strcmp(key, "peer") == 0 && cfg->peer_count < IPV67_MAX_CONFIG_PEERS) {
+        strncpy(cfg->peer_endpoint[cfg->peer_count], val, sizeof(cfg->peer_endpoint[0]) - 1);
+        cfg->peer_endpoint[cfg->peer_count][sizeof(cfg->peer_endpoint[0]) - 1] = '\0';
+        cfg->peer_count++;
+    }
+}
+
+static int load_config(const char *path, ipv67_config_t *cfg) {
+    int fd;
+    int r;
+    int i;
+    int pos;
+    char buf[2048];
+    char line[512];
+
     config_init(cfg);
-    f = fopen(path, "r");
-    if (!f) return -1;
-    while (fgets(line, sizeof(line), f)) {
-        p = line;
-        key = next_token(&p);
-        if (!key) continue;
-        val = next_token(&p);
-        if (!val) continue;
-        if (strcmp(key, "identity") == 0 || strcmp(key, "keyfile") == 0) {
-            strncpy(cfg->keyfile, val, sizeof(cfg->keyfile) - 1);
-            cfg->keyfile[sizeof(cfg->keyfile) - 1] = '\0';
-        } else if (strcmp(key, "address") == 0) {
-            strncpy(cfg->address, val, sizeof(cfg->address) - 1);
-            cfg->address[sizeof(cfg->address) - 1] = '\0';
-        } else if (strcmp(key, "port") == 0) {
-            cfg->port = atoi(val);
-            if (cfg->port <= 0 || cfg->port > 65535) cfg->port = IPV67_PORT_DEFAULT;
-        } else if (strcmp(key, "peer") == 0 && cfg->peer_count < IPV67_MAX_CONFIG_PEERS) {
-            strncpy(cfg->peer_endpoint[cfg->peer_count], val, sizeof(cfg->peer_endpoint[0]) - 1);
-            cfg->peer_endpoint[cfg->peer_count][sizeof(cfg->peer_endpoint[0]) - 1] = '\0';
-            cfg->peer_count++;
+    fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    r = (int)read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (r < 0) return -1;
+    buf[r] = '\0';
+    pos = 0;
+    for (i = 0; i <= r; i++) {
+        if (buf[i] == '\n' || buf[i] == '\0') {
+            line[pos] = '\0';
+            load_config_line(line, cfg);
+            pos = 0;
+        } else if (pos < (int)sizeof(line) - 1) {
+            line[pos++] = buf[i];
         }
     }
-    fclose(f);
     return 0;
 }
 
 static int save_config(const char *path, const ipv67_config_t *cfg) {
-    FILE *f;
+    int fd;
     int i;
+    int len;
+    char line[512];
 
     ensure_config_dir();
-    f = fopen(path, "w");
-    if (!f) return -1;
-    if (cfg->keyfile[0]) fprintf(f, "identity %s\n", cfg->keyfile);
-    if (cfg->address[0]) fprintf(f, "address %s\n", cfg->address);
-    if (cfg->port > 0) fprintf(f, "port %d\n", cfg->port);
-    for (i = 0; i < cfg->peer_count; i++) {
-        if (cfg->peer_endpoint[i][0]) fprintf(f, "peer %s\n", cfg->peer_endpoint[i]);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) return -1;
+    if (cfg->keyfile[0]) {
+        len = snprintf(line, sizeof(line), "identity %s\n", cfg->keyfile);
+        if (len < 0 || len >= (int)sizeof(line) || write_all_fd(fd, line, len) < 0) {
+            close(fd);
+            return -1;
+        }
     }
-    fclose(f);
+    if (cfg->address[0]) {
+        len = snprintf(line, sizeof(line), "address %s\n", cfg->address);
+        if (len < 0 || len >= (int)sizeof(line) || write_all_fd(fd, line, len) < 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    if (cfg->port > 0) {
+        len = snprintf(line, sizeof(line), "port %d\n", cfg->port);
+        if (len < 0 || len >= (int)sizeof(line) || write_all_fd(fd, line, len) < 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    for (i = 0; i < cfg->peer_count; i++) {
+        if (cfg->peer_endpoint[i][0]) {
+            len = snprintf(line, sizeof(line), "peer %s\n", cfg->peer_endpoint[i]);
+            if (len < 0 || len >= (int)sizeof(line) || write_all_fd(fd, line, len) < 0) {
+                close(fd);
+                return -1;
+            }
+        }
+    }
+    close(fd);
     return 0;
 }
 
@@ -460,6 +539,7 @@ static int add_peer_to_kernel(const char *endpoint_text) {
 static int load_runtime_config(const ipv67_config_t *cfg) {
     ipv67_syscall_req_t req;
     ipv67_addr_t addr;
+    uint8_t seed[IPV67_SEED_SIZE];
     long ret;
     int i;
 
@@ -468,6 +548,14 @@ static int load_runtime_config(const ipv67_config_t *cfg) {
         memset(&req, 0, sizeof(req));
         req.cmd = IPV67_CMD_SET_PORT;
         req.arg1 = (unsigned long long)(unsigned int)cfg->port;
+        ret = ipv67_syscall(&req);
+        if (ret < 0) return (int)ret;
+    }
+    if (cfg->keyfile[0] && ipv67_load_seed_from(cfg->keyfile, seed) == 0) {
+        memset(&req, 0, sizeof(req));
+        req.cmd = IPV67_CMD_SET_IDENTITY_KEY;
+        req.arg1 = (unsigned long long)(long)seed;
+        req.arg2 = IPV67_SEED_SIZE;
         ret = ipv67_syscall(&req);
         if (ret < 0) return (int)ret;
     }
@@ -490,8 +578,8 @@ static int load_runtime_config(const ipv67_config_t *cfg) {
 int cmd_ipv67cli(int argc, char **argv) {
     ipv67_syscall_req_t req;
     char addr_buf[IPV67_ADDR_STR_MAX];
-    ipv67_peer_user_t peers[64];
-    ipv67_route_user_t routes[64];
+    ipv67_peer_user_t *peers;
+    ipv67_route_user_t *routes;
     long ret;
     int count;
     int i;
@@ -510,10 +598,13 @@ int cmd_ipv67cli(int argc, char **argv) {
     int endpoint_ret;
     ipv67_endpoint_t endpoint;
     const char *config_path;
-    ipv67_config_t cfg;
-    char endpoint_text[300];
+    static ipv67_config_t cfg;
+    static char endpoint_text[300];
     ipv67_syscall_req_t probe_req;
     int config_changed;
+
+    peers = NULL;
+    routes = NULL;
 
     if (argc < 2) {
         show_usage();
@@ -768,8 +859,12 @@ int cmd_ipv67cli(int argc, char **argv) {
             return 0;
         }
         printf("Known peers (%d):\n", count);
-        if (count > 64) count = 64;
-        memset(peers, 0, sizeof(peers));
+        peers = (ipv67_peer_user_t *)malloc(sizeof(ipv67_peer_user_t) * count);
+        if (!peers) {
+            fputs("ipv67cli: out of memory\n", stderr);
+            return 1;
+        }
+        memset(peers, 0, sizeof(ipv67_peer_user_t) * count);
         memset(&req, 0, sizeof(req));
         req.cmd = IPV67_CMD_GET_PEERS;
         req.arg1 = (unsigned long long)(long)peers;
@@ -777,8 +872,10 @@ int cmd_ipv67cli(int argc, char **argv) {
         ret = ipv67_syscall(&req);
         if (ret < 0) {
             fprintf(stderr, "ipv67cli: get_peers failed (%ld)\n", ret);
+            free(peers);
             return 1;
         }
+        if (ret > count) ret = count;
         for (i = 0; i < (int)ret; i++) {
             peers[i].addr_str[IPV67_ADDR_STR_MAX - 1] = '\0';
             if (strcmp(peers[i].addr_str, "....") == 0 || peers[i].addr_str[0] == '.')
@@ -788,12 +885,21 @@ int cmd_ipv67cli(int argc, char **argv) {
             if (peers[i].family == IPV67_PEER_IPV6) {
                 putchar('[');
                 print_ipv6(peers[i].ipv6);
-                printf("]:%u\n", (unsigned int)peers[i].port);
+                printf("]:%u", (unsigned int)peers[i].port);
             } else {
                 print_ipv4(peers[i].ipv4);
-                printf(":%u\n", (unsigned int)peers[i].port);
+                printf(":%u", (unsigned int)peers[i].port);
             }
+            peers[i].alias[IPV67_ALIAS_SIZE - 1] = '\0';
+            if (peers[i].alias[0]) printf("  alias=%s", peers[i].alias);
+            if (peers[i].authenticated) printf("  auth=yes");
+            else printf("  auth=no");
+            if (peers[i].session_established) printf("  session=yes");
+            else printf("  session=no");
+            if (peers[i].missed_probes) printf("  missed=%u", (unsigned int)peers[i].missed_probes);
+            putchar('\n');
         }
+        free(peers);
         return 0;
     }
 
@@ -811,8 +917,12 @@ int cmd_ipv67cli(int argc, char **argv) {
             return 0;
         }
         printf("Known routes (%d):\n", count);
-        if (count > 64) count = 64;
-        memset(routes, 0, sizeof(routes));
+        routes = (ipv67_route_user_t *)malloc(sizeof(ipv67_route_user_t) * count);
+        if (!routes) {
+            fputs("ipv67cli: out of memory\n", stderr);
+            return 1;
+        }
+        memset(routes, 0, sizeof(ipv67_route_user_t) * count);
         memset(&req, 0, sizeof(req));
         req.cmd = IPV67_CMD_GET_ROUTES;
         req.arg1 = (unsigned long long)(long)routes;
@@ -820,8 +930,10 @@ int cmd_ipv67cli(int argc, char **argv) {
         ret = ipv67_syscall(&req);
         if (ret < 0) {
             fprintf(stderr, "ipv67cli: get_routes failed (%ld)\n", ret);
+            free(routes);
             return 1;
         }
+        if (ret > count) ret = count;
         for (i = 0; i < (int)ret; i++) {
             routes[i].dest_str[IPV67_ADDR_STR_MAX - 1] = '\0';
             printf("  %s  via ", routes[i].dest_str);
@@ -833,8 +945,9 @@ int cmd_ipv67cli(int argc, char **argv) {
                 print_ipv4(routes[i].next_hop_ipv4);
                 printf(":%u", (unsigned int)routes[i].next_hop_port);
             }
-            printf("  hops=%u\n", (unsigned int)routes[i].hops);
+            printf("  hops=%u metric=%u seq=%u\n", (unsigned int)routes[i].hops, (unsigned int)routes[i].metric, routes[i].sequence);
         }
+        free(routes);
         return 0;
     }
 
@@ -953,11 +1066,24 @@ int cmd_ipv67cli(int argc, char **argv) {
             return 1;
         }
         ipv67_derive_addr(seed, pubaddr);
+        memset(&req, 0, sizeof(req));
+        req.cmd = IPV67_CMD_SET_IDENTITY_KEY;
+        req.arg1 = (unsigned long long)(long)seed;
+        req.arg2 = IPV67_SEED_SIZE;
+        ret = ipv67_syscall(&req);
+        if (ret < 0) {
+            fprintf(stderr, "ipv67cli: keygen: failed to install identity key (%ld)\n", ret);
+            return 1;
+        }
         if (parse_ipv67_addr(pubaddr, &addr) == 0) {
             memset(&req, 0, sizeof(req));
             req.cmd = IPV67_CMD_SET_ADDR;
             req.arg1 = (unsigned long long)(long)&addr;
-            ipv67_syscall(&req);
+            ret = ipv67_syscall(&req);
+            if (ret < 0) {
+                fprintf(stderr, "ipv67cli: keygen: failed to set address (%ld)\n", ret);
+                return 1;
+            }
         }
         strncpy(cfg.keyfile, keyfile, sizeof(cfg.keyfile) - 1);
         cfg.keyfile[sizeof(cfg.keyfile) - 1] = '\0';
@@ -966,6 +1092,13 @@ int cmd_ipv67cli(int argc, char **argv) {
         if (save_config(config_path, &cfg) < 0) {
             fprintf(stderr, "ipv67cli: failed to save config %s\n", config_path);
             return 1;
+        }
+        for (i = 0; i < cfg.peer_count; i++) {
+            ret = add_peer_to_kernel(cfg.peer_endpoint[i]);
+            if (ret < 0) {
+                fprintf(stderr, "ipv67cli: keygen: failed to reload peer %s (%ld)\n", cfg.peer_endpoint[i], ret);
+                return 1;
+            }
         }
         printf("IPv67 identity key generated.\n");
         printf("Address: %s\n", pubaddr);
