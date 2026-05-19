@@ -561,6 +561,8 @@ stage: all
 	@for app in $(filter-out lebu $(SBIN_APPS),$(BIN_TARGETS)); do \
 		ln -sf lebu $(SYSROOT_BIN)/$$app; \
 	done
+	@[ -f $(BINDIR)/echo.bin ] && { rm -f $(SYSROOT_BIN)/echo; cp $(BINDIR)/echo.bin $(SYSROOT_BIN)/echo; $(STRIP) -s $(SYSROOT_BIN)/echo; } || true
+	@[ -f $(BINDIR)/free.bin ] && { rm -f $(SYSROOT_BIN)/free; cp $(BINDIR)/free.bin $(SYSROOT_BIN)/free; $(STRIP) -s $(SYSROOT_BIN)/free; } || true
 	@for app in $(SBIN_APPS); do \
 		ln -sf ../bin/lebu $(SYSROOT_SBIN)/$$app; \
 	done
