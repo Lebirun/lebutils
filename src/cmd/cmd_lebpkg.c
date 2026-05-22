@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <lebirun.h>
 #include "cu.h"
 
@@ -966,6 +967,7 @@ static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos) 
     int status;
     int ret;
     pkg_entry_t meta;
+    uint64_t map_len;
 
     if (lookup_pkg_entry(pkg, &meta) < 0) {
         memset(&meta, 0, sizeof(meta));
@@ -989,9 +991,13 @@ static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos) 
 
         if (extract_lpkg(buf, (uint32_t)got, &meta) < 0) {
             fprintf(stderr, "lebpkg: failed to extract package '%s'\n", pkg);
+            map_len = (got + 0xFFFu) & ~0xFFFu;
+            if (map_len > 0) munmap(buf, (size_t)map_len);
             return -1;
         }
 
+        map_len = (got + 0xFFFu) & ~0xFFFu;
+        if (map_len > 0) munmap(buf, (size_t)map_len);
         printf("Package '%s' installed successfully.\n", pkg);
         return 0;
     }
