@@ -15,6 +15,8 @@ int cmd_ls(int argc, char **argv) {
     unsigned int entry_type, col, idx;
     char name[64];
     const char *type_str;
+    int name_len;
+    int pad;
 
     show_all = 0;
     long_format = 0;
@@ -86,7 +88,14 @@ int cmd_ls(int argc, char **argv) {
                 type_str = "-";
             printf("%s  %s\n", type_str, name);
         } else {
-            printf("%-16s", name);
+            fputs(name, stdout);
+            name_len = (int)strlen(name);
+            pad = 16 - name_len;
+            if (pad < 2) pad = 2;
+            while (pad > 0) {
+                putchar(' ');
+                pad--;
+            }
             col++;
             if (col >= 4) {
                 putchar('\n');
