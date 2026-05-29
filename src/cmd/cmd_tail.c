@@ -16,17 +16,23 @@ int cmd_tail(int argc, char **argv) {
     int j;
     char path[256];
     char buf[TAIL_BUFSZ];
-    char *lines[1024];
+    char **lines;
+    char **new_lines;
     int line_count;
+    int line_cap;
     char *store;
     int store_pos;
     int store_cap;
     int start;
+    int rc;
 
     nlines = TAIL_DEFAULT_LINES;
     store_cap = 65536;
     store_pos = 0;
     line_count = 0;
+    lines = NULL;
+    line_cap = 0;
+    rc = 0;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -81,12 +87,31 @@ int cmd_tail(int argc, char **argv) {
         store[store_pos] = '\0';
         vfs_close_fd(fd);
 
+        line_cap = nlines + 16;
+        if (line_cap < 32) line_cap = 32;
+        lines = (char **)malloc((size_t)line_cap * sizeof(char *));
+        if (!lines) {
+            fprintf(stderr, "tail: out of memory\n");
+            free(store);
+            return 1;
+        }
+
         lines[0] = store;
         line_count = 1;
-        for (j = 0; j < store_pos && line_count < 1023; j++) {
+        for (j = 0; j < store_pos; j++) {
             if (store[j] == '\n') {
                 store[j] = '\0';
                 if (j + 1 < store_pos) {
+                    if (line_count >= line_cap) {
+                        line_cap *= 2;
+                        new_lines = (char **)realloc(lines, (size_t)line_cap * sizeof(char *));
+                        if (!new_lines) {
+                            fprintf(stderr, "tail: out of memory\n");
+                            rc = 1;
+                            break;
+                        }
+                        lines = new_lines;
+                    }
                     lines[line_count++] = &store[j + 1];
                 }
             }
@@ -99,8 +124,9 @@ int cmd_tail(int argc, char **argv) {
             puts(lines[j]);
         }
 
+        free(lines);
         free(store);
-        return 0;
+        return rc;
     }
 
     fprintf(stderr, "tail: missing file operand\n");

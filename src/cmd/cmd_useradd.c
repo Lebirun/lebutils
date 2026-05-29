@@ -190,6 +190,7 @@ int cmd_useradd(int argc, char **argv)
     char shadow_line[MAX_LINE];
     char group_line[MAX_LINE];
     char salt[4 + SALT_LEN + 1];
+    char home_buf[MAX_FIELD];
     char *hashed;
     int create_home;
 
@@ -259,7 +260,6 @@ int cmd_useradd(int argc, char **argv)
     gid = (custom_gid >= 0) ? custom_gid : uid;
 
     if (!home_dir) {
-        static char home_buf[MAX_FIELD];
         snprintf(home_buf, sizeof(home_buf), "/home/%s", username);
         home_dir = home_buf;
     }

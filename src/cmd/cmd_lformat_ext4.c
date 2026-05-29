@@ -246,14 +246,25 @@ int cmd_lformat_ext4(int argc, char **argv) {
     uint32_t bit;
     uint32_t byte_idx;
     int i;
-    static uint8_t block_buf[BLOCK_SIZE];
-    static lf_sb_t sb;
-    static lf_gd_t gd;
-    static lf_inode_t inode;
+    int ret;
+    uint8_t *block_buf;
+    uint8_t *verify_buf;
+    lf_sb_t *sb;
+    lf_gd_t *gd;
+    lf_inode_t *inode;
     lf_dirent_t *dot;
     lf_dirent_t *dotdot;
     lf_dirent_t *end;
+    lf_inode_t *ri;
     uint8_t uuid[16];
+
+    fd = -1;
+    block_buf = NULL;
+    verify_buf = NULL;
+    sb = NULL;
+    gd = NULL;
+    inode = NULL;
+    ret = 1;
 
     label = "";
     if (argc < 2) {
@@ -326,50 +337,60 @@ int cmd_lformat_ext4(int argc, char **argv) {
         return 1;
     }
 
+    block_buf = (uint8_t *)malloc(BLOCK_SIZE);
+    verify_buf = (uint8_t *)malloc(BLOCK_SIZE);
+    sb = (lf_sb_t *)malloc(sizeof(lf_sb_t));
+    gd = (lf_gd_t *)malloc(sizeof(lf_gd_t));
+    inode = (lf_inode_t *)malloc(sizeof(lf_inode_t));
+    if (!block_buf || !verify_buf || !sb || !gd || !inode) {
+        printf("lformat.ext4: out of memory\n");
+        goto out;
+    }
+
     lf_gen_uuid(uuid);
 
-    memset(&sb, 0, sizeof(sb));
-    sb.s_inodes_count = total_inodes;
-    sb.s_blocks_count_lo = total_blocks;
-    sb.s_r_blocks_count_lo = 0;
-    sb.s_free_blocks_count_lo = 0;
-    sb.s_free_inodes_count = free_inodes;
-    sb.s_first_data_block = 0;
-    sb.s_log_block_size = 2;
-    sb.s_log_cluster_size = 2;
-    sb.s_blocks_per_group = blocks_per_group;
-    sb.s_clusters_per_group = blocks_per_group;
-    sb.s_inodes_per_group = inodes_per_group;
-    sb.s_mtime = 0;
-    sb.s_wtime = 0;
-    sb.s_mnt_count = 0;
-    sb.s_max_mnt_count = 20;
-    sb.s_magic = EXT4_SUPER_MAGIC;
-    sb.s_state = 1;
-    sb.s_errors = 1;
-    sb.s_minor_rev_level = 0;
-    sb.s_lastcheck = 0;
-    sb.s_checkinterval = 0;
-    sb.s_creator_os = 5;
-    sb.s_rev_level = 1;
-    sb.s_def_resuid = 0;
-    sb.s_def_resgid = 0;
-    sb.s_first_ino = EXT4_GOOD_OLD_FIRST;
-    sb.s_inode_size = INODE_SIZE;
-    sb.s_block_group_nr = 0;
-    sb.s_feature_compat = 0;
-    sb.s_feature_incompat = 0x0002;
-    sb.s_feature_ro_compat = 0x0003;
-    memcpy(sb.s_uuid, uuid, 16);
+    memset(sb, 0, sizeof(*sb));
+    sb->s_inodes_count = total_inodes;
+    sb->s_blocks_count_lo = total_blocks;
+    sb->s_r_blocks_count_lo = 0;
+    sb->s_free_blocks_count_lo = 0;
+    sb->s_free_inodes_count = free_inodes;
+    sb->s_first_data_block = 0;
+    sb->s_log_block_size = 2;
+    sb->s_log_cluster_size = 2;
+    sb->s_blocks_per_group = blocks_per_group;
+    sb->s_clusters_per_group = blocks_per_group;
+    sb->s_inodes_per_group = inodes_per_group;
+    sb->s_mtime = 0;
+    sb->s_wtime = 0;
+    sb->s_mnt_count = 0;
+    sb->s_max_mnt_count = 20;
+    sb->s_magic = EXT4_SUPER_MAGIC;
+    sb->s_state = 1;
+    sb->s_errors = 1;
+    sb->s_minor_rev_level = 0;
+    sb->s_lastcheck = 0;
+    sb->s_checkinterval = 0;
+    sb->s_creator_os = 5;
+    sb->s_rev_level = 1;
+    sb->s_def_resuid = 0;
+    sb->s_def_resgid = 0;
+    sb->s_first_ino = EXT4_GOOD_OLD_FIRST;
+    sb->s_inode_size = INODE_SIZE;
+    sb->s_block_group_nr = 0;
+    sb->s_feature_compat = 0;
+    sb->s_feature_incompat = 0x0002;
+    sb->s_feature_ro_compat = 0x0003;
+    memcpy(sb->s_uuid, uuid, 16);
     if (label[0]) {
-        strncpy(sb.s_volume_name, label, 16);
+        strncpy(sb->s_volume_name, label, 16);
     }
-    sb.s_desc_size = 32;
-    sb.s_min_extra_isize = 28;
-    sb.s_want_extra_isize = 28;
+    sb->s_desc_size = 32;
+    sb->s_min_extra_isize = 28;
+    sb->s_want_extra_isize = 28;
 
     memset(block_buf, 0, BLOCK_SIZE);
-    memcpy(block_buf + EXT4_SB_OFFSET, &sb, sizeof(sb));
+    memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
     lf_write_block(fd, 0, block_buf);
 
     for (g = 0; g < groups; g++) {
@@ -386,24 +407,24 @@ int cmd_lformat_ext4(int argc, char **argv) {
         if (used_blocks > grp_blocks)
             used_blocks = grp_blocks;
 
-        memset(&gd, 0, sizeof(gd));
-        gd.bg_block_bitmap_lo = bb_block;
-        gd.bg_inode_bitmap_lo = ib_block;
-        gd.bg_inode_table_lo = it_block;
-        gd.bg_free_blocks_count_lo = (uint16_t)(grp_blocks - used_blocks);
+        memset(gd, 0, sizeof(*gd));
+        gd->bg_block_bitmap_lo = bb_block;
+        gd->bg_inode_bitmap_lo = ib_block;
+        gd->bg_inode_table_lo = it_block;
+        gd->bg_free_blocks_count_lo = (uint16_t)(grp_blocks - used_blocks);
         if (g == 0) {
-            gd.bg_free_inodes_count_lo = (uint16_t)(inodes_per_group - EXT4_GOOD_OLD_FIRST);
-            gd.bg_used_dirs_count_lo = 1;
+            gd->bg_free_inodes_count_lo = (uint16_t)(inodes_per_group - EXT4_GOOD_OLD_FIRST);
+            gd->bg_used_dirs_count_lo = 1;
         } else {
-            gd.bg_free_inodes_count_lo = (uint16_t)inodes_per_group;
-            gd.bg_used_dirs_count_lo = 0;
+            gd->bg_free_inodes_count_lo = (uint16_t)inodes_per_group;
+            gd->bg_used_dirs_count_lo = 0;
         }
 
-        free_blocks += gd.bg_free_blocks_count_lo;
+        free_blocks += gd->bg_free_blocks_count_lo;
 
         memset(block_buf, 0, BLOCK_SIZE);
         lseek(fd, (off_t)BLOCK_SIZE + (off_t)g * 32, SEEK_SET);
-        vfs_write_fd(fd, &gd, 32);
+        vfs_write_fd(fd, gd, 32);
 
         memset(block_buf, 0, BLOCK_SIZE);
         for (bit = 0; bit < used_blocks; bit++) {
@@ -472,32 +493,28 @@ int cmd_lformat_ext4(int argc, char **argv) {
     it_block = 1 + gdt_blocks + 1 + 1;
 
     memset(block_buf, 0, BLOCK_SIZE);
-    memset(&inode, 0, sizeof(inode));
-    inode.i_mode = EXT4_S_IFDIR | 0755;
-    inode.i_uid = 0;
-    inode.i_size_lo = BLOCK_SIZE;
-    inode.i_links_count = 2;
-    inode.i_blocks_lo = BLOCK_SIZE / 512;
-    inode.i_block[0] = first_data;
-    inode.i_extra_isize = 28;
+    memset(inode, 0, sizeof(*inode));
+    inode->i_mode = EXT4_S_IFDIR | 0755;
+    inode->i_uid = 0;
+    inode->i_size_lo = BLOCK_SIZE;
+    inode->i_links_count = 2;
+    inode->i_blocks_lo = BLOCK_SIZE / 512;
+    inode->i_block[0] = first_data;
+    inode->i_extra_isize = 28;
 
-    memcpy(block_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE, &inode, sizeof(inode));
+    memcpy(block_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE, inode, sizeof(*inode));
     if (lf_write_block(fd, it_block, block_buf) < 0) {
         printf("lformat.ext4: FATAL: failed to write root inode to block %u\n", it_block);
-        vfs_close_fd(fd);
-        return 1;
+        goto out;
     }
 
-    {
-        static uint8_t verify_buf[BLOCK_SIZE];
-        lseek(fd, (off_t)it_block * BLOCK_SIZE, SEEK_SET);
-        vfs_read_fd(fd, verify_buf, BLOCK_SIZE);
-        lf_inode_t *ri = (lf_inode_t *)(verify_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE);
-        if (ri->i_mode == 0) {
-            printf("lformat.ext4: WARNING: readback of root inode shows mode=0! Write may have failed.\n");
-        } else {
-            printf("lformat.ext4: root inode written ok (mode=0x%04x)\n", ri->i_mode);
-        }
+    lseek(fd, (off_t)it_block * BLOCK_SIZE, SEEK_SET);
+    vfs_read_fd(fd, verify_buf, BLOCK_SIZE);
+    ri = (lf_inode_t *)(verify_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE);
+    if (ri->i_mode == 0) {
+        printf("lformat.ext4: WARNING: readback of root inode shows mode=0! Write may have failed.\n");
+    } else {
+        printf("lformat.ext4: root inode written ok (mode=0x%04x)\n", ri->i_mode);
     }
 
     memset(block_buf, 0, BLOCK_SIZE);
@@ -532,9 +549,9 @@ int cmd_lformat_ext4(int argc, char **argv) {
     block_buf[byte_idx] |= (1 << (first_data & 7));
     lf_write_block(fd, bb_block, block_buf);
 
-    sb.s_free_blocks_count_lo = free_blocks - 1;
+    sb->s_free_blocks_count_lo = free_blocks - 1;
     memset(block_buf, 0, BLOCK_SIZE);
-    memcpy(block_buf + EXT4_SB_OFFSET, &sb, sizeof(sb));
+    memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
     lf_write_block(fd, 0, block_buf);
 
     {
@@ -549,6 +566,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
     fsync(fd);
     vfs_close_fd(fd);
+    fd = -1;
 
     printf("Filesystem created successfully.\n");
     printf("  UUID: %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
@@ -558,8 +576,17 @@ int cmd_lformat_ext4(int argc, char **argv) {
            uuid[12], uuid[13], uuid[14], uuid[15]);
     if (label[0])
         printf("  Volume label: %s\n", label);
-    printf("  Total blocks: %u, Free blocks: %u\n", total_blocks, sb.s_free_blocks_count_lo);
+    printf("  Total blocks: %u, Free blocks: %u\n", total_blocks, sb->s_free_blocks_count_lo);
     printf("  Total inodes: %u, Free inodes: %u\n", total_inodes, free_inodes);
 
-    return 0;
+    ret = 0;
+
+out:
+    if (fd >= 0) vfs_close_fd(fd);
+    free(block_buf);
+    free(verify_buf);
+    free(sb);
+    free(gd);
+    free(inode);
+    return ret;
 }

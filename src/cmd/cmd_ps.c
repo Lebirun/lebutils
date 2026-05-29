@@ -4,7 +4,6 @@
 #include "cu.h"
 
 #define O_RDONLY 0
-#define PS_MAXPROCS 256
 #define PS_BUFSZ 512
 
 struct ps_entry {
@@ -38,13 +37,20 @@ static void ps_parse_stat(const char *buf, struct ps_entry *e) {
     const char *name_end;
     int field;
     int ni;
+    int sign;
 
     p = buf;
     e->pid = 0;
+    sign = 1;
+    if (*p == '-') {
+        sign = -1;
+        p++;
+    }
     while (*p >= '0' && *p <= '9') {
         e->pid = e->pid * 10 + (*p - '0');
         p++;
     }
+    e->pid *= sign;
     while (*p == ' ') p++;
 
     if (*p == '(') {
@@ -69,10 +75,16 @@ static void ps_parse_stat(const char *buf, struct ps_entry *e) {
     while (*p == ' ') p++;
 
     e->ppid = 0;
+    sign = 1;
+    if (*p == '-') {
+        sign = -1;
+        p++;
+    }
     while (*p >= '0' && *p <= '9') {
         e->ppid = e->ppid * 10 + (*p - '0');
         p++;
     }
+    e->ppid *= sign;
 
     field = 4;
     while (*p && field < 22) {
@@ -97,11 +109,19 @@ int cmd_ps(int argc, char **argv) {
     unsigned int idx;
     char path[128];
     char statbuf[PS_BUFSZ];
-    struct ps_entry entries[PS_MAXPROCS];
+    struct ps_entry *entries;
+    struct ps_entry *new_entries;
     int count;
+    int capacity;
     int show_all;
+    int is_pid;
+    const char *np;
+    int rc;
 
     show_all = 0;
+    entries = NULL;
+    capacity = 0;
+    rc = 0;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -124,11 +144,10 @@ int cmd_ps(int argc, char **argv) {
     count = 0;
     idx = 0;
     while (vfs_readdir(fd, name, &type, idx) >= 0) {
-        int is_pid;
-        const char *np;
-
         is_pid = 1;
         np = name;
+        if (*np == '\0') is_pid = 0;
+        if (*np == '-') np++;
         if (*np == '\0') is_pid = 0;
         while (*np) {
             if (*np < '0' || *np > '9') {
@@ -138,9 +157,19 @@ int cmd_ps(int argc, char **argv) {
             np++;
         }
 
-        if (is_pid && count < PS_MAXPROCS) {
+        if (is_pid) {
             snprintf(path, sizeof(path), "/proc/%s/stat", name);
             if (ps_read_file(path, statbuf, PS_BUFSZ) > 0) {
+                if (count >= capacity) {
+                    capacity = capacity ? capacity * 2 : 32;
+                    new_entries = (struct ps_entry *)realloc(entries, (size_t)capacity * sizeof(struct ps_entry));
+                    if (!new_entries) {
+                        fprintf(stderr, "ps: out of memory\n");
+                        rc = 1;
+                        break;
+                    }
+                    entries = new_entries;
+                }
                 memset(&entries[count], 0, sizeof(entries[count]));
                 ps_parse_stat(statbuf, &entries[count]);
                 count++;
@@ -161,5 +190,6 @@ int cmd_ps(int argc, char **argv) {
     }
 
     (void)show_all;
-    return 0;
+    free(entries);
+    return rc;
 }

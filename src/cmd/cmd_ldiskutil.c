@@ -350,22 +350,34 @@ static int ld_disk_write(const char *devpath, uint32_t lba, uint32_t count, cons
 }
 
 static int ld_scan_disk(ld_disk_t *disk) {
-    static uint8_t sector0[SECTOR_SIZE];
-    static uint8_t sector1[SECTOR_SIZE];
-    static uint8_t entries_buf[SECTOR_SIZE * 32];
+    uint8_t *sector0;
+    uint8_t *sector1;
+    uint8_t *entries_buf;
     ld_mbr_t *mbr;
     ld_gpt_header_t *gpt;
     int ret;
+    int result;
     int i;
     int stat_fd;
     uint64_t dev_size;
     uint64_t dev_type;
+
+    sector0 = NULL;
+    sector1 = NULL;
+    entries_buf = NULL;
+    result = -1;
 
     memset(disk->parts, 0, sizeof(disk->parts));
     disk->part_count = 0;
     disk->is_gpt = 0;
     disk->disk_sectors = 0;
     disk->modified = 0;
+
+    sector0 = (uint8_t *)malloc(SECTOR_SIZE);
+    sector1 = (uint8_t *)malloc(SECTOR_SIZE);
+    entries_buf = (uint8_t *)malloc(SECTOR_SIZE * 32);
+    if (!sector0 || !sector1 || !entries_buf)
+        goto out;
 
     stat_fd = vfs_open(disk->devpath, 0);
     if (stat_fd >= 0) {
@@ -378,12 +390,15 @@ static int ld_scan_disk(ld_disk_t *disk) {
     }
 
     ret = ld_disk_read(disk->devpath, 0, 1, sector0);
-    if (ret < SECTOR_SIZE) return -1;
+    if (ret < SECTOR_SIZE) goto out;
 
     mbr = (ld_mbr_t *)sector0;
     memcpy(disk->mbr_bootstrap, mbr->bootstrap, 446);
 
-    if (mbr->signature != MBR_SIG) return 0;
+    if (mbr->signature != MBR_SIG) {
+        result = 0;
+        goto out;
+    }
 
     ret = ld_disk_read(disk->devpath, 1, 1, sector1);
     if (ret >= SECTOR_SIZE) {
@@ -429,7 +444,8 @@ static int ld_scan_disk(ld_disk_t *disk) {
                 }
                 disk->part_count = j;
             }
-            return 0;
+            result = 0;
+            goto out;
         }
     }
 
@@ -456,7 +472,13 @@ static int ld_scan_disk(ld_disk_t *disk) {
         if (max_end > 0) disk->disk_sectors = max_end;
     }
 
-    return 0;
+    result = 0;
+
+out:
+    free(sector0);
+    free(sector1);
+    free(entries_buf);
+    return result;
 }
 
 static uint32_t ld_crc32(const uint8_t *data, uint32_t len) {
@@ -1139,6 +1161,7 @@ static void ld_action_type(void) {
     int sel;
     int i;
     const char *names[16];
+    char mbr_labels[16][32];
 
     if (S.disk.part_count == 0) {
         strcpy(S.msg, " No partitions.");
@@ -1155,7 +1178,6 @@ static void ld_action_type(void) {
         if (sel < 0) return;
         memcpy(S.disk.parts[idx].gpt_type_guid, ld_gpt_types[sel].guid, 16);
     } else {
-        static char mbr_labels[16][32];
         for (i = 0; i < LD_MBR_TYPE_COUNT; i++) {
             snprintf(mbr_labels[i], sizeof(mbr_labels[i]), "%02X  %s",
                      ld_mbr_types[i].code, ld_mbr_types[i].name);
@@ -1194,9 +1216,9 @@ static int ld_write_mbr(ld_disk_t *disk) {
 }
 
 static int ld_write_gpt(ld_disk_t *disk) {
-    static uint8_t entries_buf[SECTOR_SIZE * 32];
-    static uint8_t hdr_sector[SECTOR_SIZE];
-    static uint8_t alt_sector[SECTOR_SIZE];
+    uint8_t *entries_buf;
+    uint8_t *hdr_sector;
+    uint8_t *alt_sector;
     ld_mbr_t pmbr;
     ld_gpt_header_t hdr;
     ld_gpt_header_t alt_hdr;
@@ -1207,11 +1229,23 @@ static int ld_write_gpt(ld_disk_t *disk) {
     uint64_t alt_lba;
     int i;
     int num_entries;
+    int result;
 
-    if (disk->disk_sectors < 2048) return -1;
+    entries_buf = NULL;
+    hdr_sector = NULL;
+    alt_sector = NULL;
+    result = -1;
+
+    if (disk->disk_sectors < 2048) goto out;
 
     num_entries = 128;
     entries_sectors = (uint32_t)((num_entries * sizeof(ld_gpt_entry_t) + 511) / 512);
+
+    entries_buf = (uint8_t *)malloc(SECTOR_SIZE * 32);
+    hdr_sector = (uint8_t *)malloc(SECTOR_SIZE);
+    alt_sector = (uint8_t *)malloc(SECTOR_SIZE);
+    if (!entries_buf || !hdr_sector || !alt_sector)
+        goto out;
 
     memset(&pmbr, 0, sizeof(pmbr));
     pmbr.signature = MBR_SIG;
@@ -1223,11 +1257,11 @@ static int ld_write_gpt(ld_disk_t *disk) {
         pmbr.parts[0].sector_count = (uint32_t)(disk->disk_sectors - 1);
 
     if (ld_disk_write(disk->devpath, 0, 1, &pmbr) < SECTOR_SIZE)
-        return -1;
+        goto out;
 
     alt_lba = disk->disk_sectors - 1;
 
-    memset(entries_buf, 0, sizeof(entries_buf));
+    memset(entries_buf, 0, SECTOR_SIZE * 32);
     for (i = 0; i < disk->part_count && i < num_entries; i++) {
         if (!disk->parts[i].valid) continue;
         entry = (ld_gpt_entry_t *)(entries_buf + i * sizeof(ld_gpt_entry_t));
@@ -1267,10 +1301,10 @@ static int ld_write_gpt(ld_disk_t *disk) {
     memset(hdr_sector, 0, SECTOR_SIZE);
     memcpy(hdr_sector, &hdr, sizeof(hdr));
     if (ld_disk_write(disk->devpath, 1, 1, hdr_sector) < SECTOR_SIZE)
-        return -1;
+        goto out;
 
     if (ld_disk_write(disk->devpath, 2, entries_sectors, entries_buf) < (int)(entries_sectors * SECTOR_SIZE))
-        return -1;
+        goto out;
 
     alt_entries_lba = (uint32_t)(alt_lba - entries_sectors);
     ld_disk_write(disk->devpath, alt_entries_lba, entries_sectors, entries_buf);
@@ -1286,7 +1320,13 @@ static int ld_write_gpt(ld_disk_t *disk) {
     memcpy(alt_sector, &alt_hdr, sizeof(alt_hdr));
     ld_disk_write(disk->devpath, (uint32_t)alt_lba, 1, alt_sector);
 
-    return 0;
+    result = 0;
+
+out:
+    free(entries_buf);
+    free(hdr_sector);
+    free(alt_sector);
+    return result;
 }
 
 static void ld_action_write(void) {
@@ -1312,18 +1352,27 @@ static void ld_action_write(void) {
 }
 
 static void ld_action_wipe(void) {
-    static uint8_t zero_buf[SECTOR_SIZE * 8];
+    uint8_t *zero_buf;
     int ret;
+
+    zero_buf = NULL;
 
     if (!ld_confirm("Wipe filesystem signatures from disk?")) {
         S.msg[0] = '\0';
         return;
     }
 
-    memset(zero_buf, 0, sizeof(zero_buf));
+    zero_buf = (uint8_t *)malloc(SECTOR_SIZE * 8);
+    if (!zero_buf) {
+        strcpy(S.msg, " ERROR: Out of memory!");
+        return;
+    }
+
+    memset(zero_buf, 0, SECTOR_SIZE * 8);
 
     ret = ld_disk_write(S.disk.devpath, 0, 8, zero_buf);
-    if (ret < (int)sizeof(zero_buf)) {
+    free(zero_buf);
+    if (ret < SECTOR_SIZE * 8) {
         strcpy(S.msg, " ERROR: Failed to wipe signatures!");
         return;
     }
