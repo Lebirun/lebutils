@@ -1,6 +1,13 @@
 # Lebutils
-The coreutils made for Lebirun, which are included in Lebirun by default.
+Software which come with Lebirun pre-installed.
 
-To build, just run `make` (read Makefile before running it, you will see what you will need in which directory)
+### Build
+Run `make` to build lebutils.
 
-If you want to configure Lebutils, use `make lebconfig`.
+### Configuration
+Powered by Lebconfig, use `make lebconfig` to configure lebutils.
+
+### License
+
+This project is licensed under the GNU General Public License v3. 
+Effective 9 July 2026 (before official release), this project has officially transitioned from GPLv2 to GPLv3. We (The Lebirun Project), as the copyright holders of the code within this repository's history, hereby license all historical commits, modifications, and past releases under the GNU General Public License v3.0 or later.

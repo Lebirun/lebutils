@@ -29,7 +29,7 @@ static int cat_one(const char *arg) {
         vfs_close_fd(fd);
         return 1;
     }
-    if (type & 0x02) {
+    if ((type & 0x07) == 0x02) {
         printf("cat: '%s' is a directory\n", path);
         vfs_close_fd(fd);
         return 1;

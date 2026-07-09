@@ -59,8 +59,8 @@ subcategory "Software" {
     }
     subcategory "Misc" {
         subcategory "Networking" {
-            item type=bool name="ipv67cli" default=enable id=ipv67cli alias="COMMAND_IPV67CLI" help="Enable the 'ipv67cli' command - configure and manage the IPv67 decentralized mesh network"
-            item type=bool name="ipv67d" default=enable id=ipv67d alias="COMMAND_IPV67D" help="Enable the 'ipv67d' daemon - IPv67 peer discovery and heartbeat daemon"
+            item type=bool name="[EXPERIMENTAL] ipv67cli" default=enable id=ipv67cli alias="COMMAND_IPV67CLI" help="Enable the 'ipv67cli' command"
+            item type=bool name="[EXPERIMENTAL] ipv67d" default=enable id=ipv67d alias="COMMAND_IPV67D" help="Enable the 'ipv67d' daemon"
         }
         subcategory "Text Editors" {
             item type=bool name="ltxtedit" default=enable id=ltxtedit alias="COMMAND_LTXTEDIT" help="Enable the 'ltxtedit' text editor - lightweight terminal text editor"

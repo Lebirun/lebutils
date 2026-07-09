@@ -500,9 +500,23 @@ ifeq ($(COMMAND_IPV67D),y)
 IPV67_TARGETS += $(BINDIR)/ipv67d.bin
 endif
 
-.PHONY: all clean stage lebconfig clean-lebconfig showconfig
+.PHONY: all clean stage lebconfig clean-lebconfig showconfig ipv67cli ipv67d stage-ipv67cli stage-ipv67d
 
 all: $(PROGRAMS) $(IPV67_TARGETS)
+
+ipv67cli: $(BINDIR)/ipv67cli.bin
+
+ipv67d: $(BINDIR)/ipv67d.bin
+
+stage-ipv67cli: $(BINDIR)/ipv67cli.bin
+	$(Q)mkdir -p $(SYSROOT_BIN)
+	$(Q)cp $(BINDIR)/ipv67cli.bin $(SYSROOT_BIN)/ipv67cli
+	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/ipv67cli
+
+stage-ipv67d: $(BINDIR)/ipv67d.bin
+	$(Q)mkdir -p $(SYSROOT_SBIN)
+	$(Q)cp $(BINDIR)/ipv67d.bin $(SYSROOT_SBIN)/ipv67d
+	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_SBIN)/ipv67d
 
 showconfig:
 	@echo "Using config: $(CONFIG_FILE)"

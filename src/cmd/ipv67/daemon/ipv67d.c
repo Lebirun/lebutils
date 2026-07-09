@@ -26,12 +26,27 @@
 #define IPV67_CMD_PROBE_PEERS  16
 #define IPV67_CMD_SET_AUTH_KEY 19
 #define IPV67_CMD_SET_IDENTITY_KEY 20
+#define IPV67_CMD_SET_ASN      21
+#define IPV67_CMD_SET_AUTH_REQUIRED 28
+#define IPV67_CMD_GET_LOCAL_ASN 30
+#define IPV67_CMD_PUNCH        31
 
 #define IPV67_PEER_IPV4        4
 #define IPV67_PEER_IPV6        6
 #define IPV67_AUTH_KEY_SIZE    32
 #define IPV67_IDENTITY_SIZE    32
 #define IPV67_ALIAS_SIZE       16
+#define IPV67_MAX_CONFIG_ASNS  32
+#define IPV67_ASN_NAME_SIZE    32
+#define IPV67_ASN_LABEL_SIZE   32
+#define IPV67_ASN_COUNTRY_SIZE 3
+#define IPV67_ASN_SOURCE_SIZE  16
+#define IPV67_ASN_FLAG_LOCAL   0x01
+#define IPV67_ASN_FLAG_BROAD   0x02
+#define IPV67_ASN_FLAG_AUTH    0x08
+#define IPV67_ASN_FLAG_RELAY   0x10
+#define IPV67_ASN_FLAG_QUARANTINE 0x20
+#define IPV67_ASN_OWNERSHIP_SPECIFICITY 136
 
 #define IPV67_ZONE_MAX    6
 #define IPV67_DOMAIN_MAX  32
@@ -58,10 +73,24 @@ typedef struct {
     unsigned char authenticated;
     unsigned char session_established;
     unsigned char missed_probes;
+    unsigned char addr_verified;
     char alias[IPV67_ALIAS_SIZE];
     unsigned char public_key[IPV67_IDENTITY_SIZE];
     char addr_str[IPV67_ADDR_STR_MAX];
 } __attribute__((packed)) ipv67_peer_user_t;
+
+typedef struct {
+    unsigned int asn;
+    unsigned char specificity;
+    unsigned char flags;
+    unsigned char conflict_count;
+    char country[IPV67_ASN_COUNTRY_SIZE];
+    char source[IPV67_ASN_SOURCE_SIZE];
+    char name[IPV67_ASN_NAME_SIZE];
+    char label[IPV67_ASN_LABEL_SIZE];
+    char start_str[IPV67_ADDR_STR_MAX];
+    char end_str[IPV67_ADDR_STR_MAX];
+} __attribute__((packed)) ipv67_asn_user_t;
 
 typedef struct {
     char zone1[IPV67_ZONE_MAX + 1];
@@ -81,10 +110,16 @@ typedef struct {
 
 typedef struct {
     char keyfile[256];
+    char authkey[IPV67_AUTH_KEY_SIZE * 2 + 1];
     char address[IPV67_ADDR_STR_MAX];
     int port;
+    int probe_interval;
+    int auth_required;
+    int auth_required_set;
     int peer_count;
+    int asn_count;
     char peer_endpoint[IPV67_MAX_CONFIG_PEERS][256];
+    ipv67_asn_user_t asns[IPV67_MAX_CONFIG_ASNS];
 } ipv67_config_t;
 
 static unsigned short ipv67_instance_port = IPV67_PORT_DEFAULT;
@@ -92,10 +127,15 @@ static unsigned short ipv67_instance_port = IPV67_PORT_DEFAULT;
 static long ipv67_syscall(ipv67_syscall_req_t *req) {
     long ret;
     int i;
+    static int module_error_printed;
 
     if (req && req->arg4 == 0) req->arg4 = ipv67_instance_port;
     for (i = 0; i < 64; i++) {
         ret = leb_syscall1(LEB_SYSCALL_IPV67, (long)req);
+        if ((ret == -19 || ret == -38) && !module_error_printed) {
+            fputs("ipv67d: IPv67 module is not loaded; load ipv67.lke before starting ipv67d\n", stderr);
+            module_error_printed = 1;
+        }
         if (ret != -11) return ret;
         leb_syscall1(LEB_SYSCALL_SLEEP, 10);
     }
@@ -181,6 +221,32 @@ static int parse_ipv4_text(const char *s, unsigned int *out) {
     d = (unsigned int)octet;
     if (a > 255 || b > 255 || c > 255 || d > 255) return -1;
     *out = (a << 24) | (b << 16) | (c << 8) | d;
+    return 0;
+}
+
+static int hex_value(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static int parse_hex_key(const char *text, unsigned char *out, int out_len) {
+    int i;
+    int hi;
+    int lo;
+
+    if (!text || !out || out_len <= 0) return -1;
+    for (i = 0; i < out_len * 2; i++) {
+        if (!text[i]) return -1;
+        if (hex_value(text[i]) < 0) return -1;
+    }
+    if (text[out_len * 2]) return -1;
+    for (i = 0; i < out_len; i++) {
+        hi = hex_value(text[i * 2]);
+        lo = hex_value(text[i * 2 + 1]);
+        out[i] = (unsigned char)((hi << 4) | lo);
+    }
     return 0;
 }
 
@@ -286,12 +352,19 @@ static void config_init(ipv67_config_t *cfg) {
     memset(cfg, 0, sizeof(*cfg));
     strcpy(cfg->keyfile, IPV67_IDENTITY_KEY);
     cfg->port = IPV67_PORT_DEFAULT;
+    cfg->probe_interval = 10000;
+}
+
+static int asn_claim_is_metadata_only(const ipv67_asn_user_t *claim) {
+    if (!claim) return 1;
+    return claim->specificity < IPV67_ASN_OWNERSHIP_SPECIFICITY;
 }
 
 static void load_config_line(char *line, ipv67_config_t *cfg) {
     char *p;
     char *key;
     char *val;
+    char *start;
 
     p = line;
     key = next_token(&p);
@@ -301,16 +374,49 @@ static void load_config_line(char *line, ipv67_config_t *cfg) {
     if (strcmp(key, "identity") == 0 || strcmp(key, "keyfile") == 0) {
         strncpy(cfg->keyfile, val, sizeof(cfg->keyfile) - 1);
         cfg->keyfile[sizeof(cfg->keyfile) - 1] = '\0';
+    } else if (strcmp(key, "authkey") == 0) {
+        strncpy(cfg->authkey, val, sizeof(cfg->authkey) - 1);
+        cfg->authkey[sizeof(cfg->authkey) - 1] = '\0';
+    } else if (strcmp(key, "auth_required") == 0) {
+        cfg->auth_required = atoi(val) ? 1 : 0;
+        cfg->auth_required_set = 1;
     } else if (strcmp(key, "address") == 0) {
         strncpy(cfg->address, val, sizeof(cfg->address) - 1);
         cfg->address[sizeof(cfg->address) - 1] = '\0';
     } else if (strcmp(key, "port") == 0) {
         cfg->port = atoi(val);
         if (cfg->port <= 0 || cfg->port > 65535) cfg->port = IPV67_PORT_DEFAULT;
+    } else if (strcmp(key, "probe_interval") == 0) {
+        cfg->probe_interval = atoi(val);
+        if (cfg->probe_interval < 1000) cfg->probe_interval = 1000;
     } else if (strcmp(key, "peer") == 0 && cfg->peer_count < IPV67_MAX_CONFIG_PEERS) {
         strncpy(cfg->peer_endpoint[cfg->peer_count], val, sizeof(cfg->peer_endpoint[0]) - 1);
         cfg->peer_endpoint[cfg->peer_count][sizeof(cfg->peer_endpoint[0]) - 1] = '\0';
         cfg->peer_count++;
+    } else if (strcmp(key, "asn") == 0 && cfg->asn_count < IPV67_MAX_CONFIG_ASNS) {
+        cfg->asns[cfg->asn_count].asn = 0;
+        if (strchr(val, '.')) {
+            start = val;
+        } else {
+            start = next_token(&p);
+            if (!start) return;
+        }
+        strncpy(cfg->asns[cfg->asn_count].start_str, start, IPV67_ADDR_STR_MAX - 1);
+        val = next_token(&p);
+        if (!val) return;
+        strncpy(cfg->asns[cfg->asn_count].end_str, val, IPV67_ADDR_STR_MAX - 1);
+        val = next_token(&p);
+        if (!val) return;
+        cfg->asns[cfg->asn_count].specificity = (unsigned char)atoi(val);
+        val = next_token(&p);
+        if (val) strncpy(cfg->asns[cfg->asn_count].country, val, IPV67_ASN_COUNTRY_SIZE - 1);
+        val = next_token(&p);
+        if (val) strncpy(cfg->asns[cfg->asn_count].name, val, IPV67_ASN_NAME_SIZE - 1);
+        val = next_token(&p);
+        if (val) strncpy(cfg->asns[cfg->asn_count].label, val, IPV67_ASN_LABEL_SIZE - 1);
+        cfg->asns[cfg->asn_count].flags = IPV67_ASN_FLAG_LOCAL;
+        if (asn_claim_is_metadata_only(&cfg->asns[cfg->asn_count])) cfg->asns[cfg->asn_count].flags |= IPV67_ASN_FLAG_BROAD;
+        cfg->asn_count++;
     }
 }
 
@@ -365,10 +471,58 @@ static int add_peer_to_kernel(const char *endpoint_text) {
     return (int)ret;
 }
 
-static void do_heartbeat(FILE *log) {
+static int install_asn_claim(const ipv67_asn_user_t *claim) {
+    ipv67_syscall_req_t req;
+    long ret;
+
+    memset(&req, 0, sizeof(req));
+    req.cmd = IPV67_CMD_SET_ASN;
+    req.arg1 = (unsigned long long)(long)claim;
+    ret = ipv67_syscall(&req);
+    return (int)ret;
+}
+
+static void install_config_asns(FILE *log, const ipv67_config_t *cfg, int identity_loaded) {
+    ipv67_syscall_req_t req;
+    ipv67_asn_user_t asn_claim;
+    long ret;
+    unsigned int local_asn;
+    int i;
+
+    if (!cfg) return;
+    local_asn = 0;
+    for (i = 0; i < cfg->asn_count; i++) {
+        memcpy(&asn_claim, &cfg->asns[i], sizeof(asn_claim));
+        if (asn_claim.asn == 0) {
+            if (!identity_loaded) {
+                ipv67d_log(log, "ipv67d: ASN claim requires identity key");
+                continue;
+            }
+            if (local_asn == 0) {
+                memset(&req, 0, sizeof(req));
+                req.cmd = IPV67_CMD_GET_LOCAL_ASN;
+                ret = ipv67_syscall(&req);
+                if (ret > 0) local_asn = (unsigned int)ret;
+            }
+            asn_claim.asn = local_asn;
+        }
+        ret = install_asn_claim(&asn_claim);
+        if (ret < 0) ipv67d_log(log, "ipv67d: failed to install ASN claim");
+    }
+}
+
+static void do_heartbeat(FILE *log, const ipv67_config_t *cfg, int identity_loaded) {
     long ret;
     ipv67_syscall_req_t probe_req;
+    int i;
 
+    if (cfg) {
+        install_config_asns(log, cfg, identity_loaded);
+        for (i = 0; i < cfg->peer_count; i++) {
+            ret = add_peer_to_kernel(cfg->peer_endpoint[i]);
+            if (ret < 0) ipv67d_log(log, "ipv67d: peer rediscovery failed");
+        }
+    }
     memset(&probe_req, 0, sizeof(probe_req));
     probe_req.cmd = IPV67_CMD_PROBE_PEERS;
     ret = ipv67_syscall(&probe_req);
@@ -385,6 +539,9 @@ static void show_usage(void) {
     puts("  -a <addr>    Set IPv67 address on startup");
     puts("  -k <keyfile> Load identity key from file (default: " IPV67_IDENTITY_KEY ")");
     puts("  -p <port>    Set IPv67 UDP port (default 6767)");
+    puts("  -i <ms>      Set automatic peer probe interval");
+    puts("  authkey is loaded from config as authkey <64 hex chars>");
+    puts("  auth_required is loaded from config as auth_required <0|1>");
     puts("  --peer       Run peer probing mode");
     puts("  --manual     Disable automatic peer probes");
     puts("  -h           Show this help");
@@ -404,8 +561,9 @@ int main(int argc, char **argv) {
     unsigned int tick;
     unsigned int last_heartbeat;
     unsigned int heartbeat_interval;
+    int identity_loaded;
     uint8_t seed[IPV67_SEED_SIZE];
-    char key_addr[IPV67_ADDR_STR_MAX];
+    unsigned char auth_key[IPV67_AUTH_KEY_SIZE];
     const char *keyfile;
     int load_ret;
     const char *config_path;
@@ -413,6 +571,8 @@ int main(int argc, char **argv) {
     int config_loaded;
     int peer_mode;
     int manual_mode;
+    int interval_arg;
+    int address_ready;
     static char pid_path[128];
     static char log_path[128];
 
@@ -424,6 +584,9 @@ int main(int argc, char **argv) {
     config_loaded = 0;
     peer_mode = 0;
     manual_mode = 0;
+    interval_arg = 0;
+    address_ready = 0;
+    identity_loaded = 0;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -442,6 +605,12 @@ int main(int argc, char **argv) {
                 fputs("ipv67d: invalid port\n", stderr);
                 return 1;
             }
+        } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+            interval_arg = atoi(argv[++i]);
+            if (interval_arg < 1000) {
+                fputs("ipv67d: invalid probe interval\n", stderr);
+                return 1;
+            }
         } else if (strcmp(argv[i], "-k") == 0 && i + 1 < argc) {
             keyfile = argv[++i];
         } else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
@@ -455,6 +624,7 @@ int main(int argc, char **argv) {
         if (!set_addr && cfg.address[0]) set_addr = cfg.address;
         if (set_port == 0 && cfg.port > 0) set_port = cfg.port;
     }
+    if (interval_arg > 0) cfg.probe_interval = interval_arg;
     if (set_port > 0) ipv67_instance_port = (unsigned short)set_port;
     else ipv67_instance_port = (unsigned short)cfg.port;
 
@@ -471,6 +641,16 @@ int main(int argc, char **argv) {
         ipv67_syscall(&req);
     }
 
+    if (cfg.authkey[0] && parse_hex_key(cfg.authkey, auth_key, IPV67_AUTH_KEY_SIZE) == 0) {
+        memset(&req, 0, sizeof(req));
+        req.cmd = IPV67_CMD_SET_AUTH_KEY;
+        req.arg1 = (unsigned long long)(long)auth_key;
+        req.arg2 = IPV67_AUTH_KEY_SIZE;
+        ret = ipv67_syscall(&req);
+        if (ret < 0) ipv67d_log(log, "ipv67d: failed to install auth key");
+        else ipv67d_log(log, "ipv67d: installed auth key");
+    }
+
     if (keyfile) {
         load_ret = ipv67_load_seed_from(keyfile, seed);
     } else {
@@ -480,16 +660,22 @@ int main(int argc, char **argv) {
         memset(&req, 0, sizeof(req));
         req.cmd = IPV67_CMD_SET_IDENTITY_KEY;
         req.arg1 = (unsigned long long)(long)seed;
-        req.arg2 = IPV67_AUTH_KEY_SIZE;
+        req.arg2 = IPV67_SEED_SIZE;
         ret = ipv67_syscall(&req);
         if (ret < 0) ipv67d_log(log, "ipv67d: failed to install identity key");
         else ipv67d_log(log, "ipv67d: installed identity key");
-        if (!set_addr) {
-            ipv67_derive_addr(seed, key_addr);
-            set_addr = key_addr;
-            ipv67d_log(log, "ipv67d: loaded identity key");
-        }
+        identity_loaded = 1;
+        ipv67d_log(log, "ipv67d: loaded identity key");
     }
+
+    memset(&req, 0, sizeof(req));
+    req.cmd = IPV67_CMD_SET_AUTH_REQUIRED;
+    req.arg1 = (cfg.auth_required || (!cfg.auth_required_set && identity_loaded)) ? 1 : 0;
+    ret = ipv67_syscall(&req);
+    if (ret < 0) ipv67d_log(log, "ipv67d: failed to set auth policy");
+    else if (req.arg1) ipv67d_log(log, "ipv67d: auth required");
+
+    if (config_loaded) install_config_asns(log, &cfg, identity_loaded);
 
     if (set_addr) {
         ret = parse_ipv67_addr(set_addr, &addr);
@@ -510,7 +696,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (peer_mode && config_loaded) {
+    if (config_loaded) {
         for (i = 0; i < cfg.peer_count; i++) {
             ret = add_peer_to_kernel(cfg.peer_endpoint[i]);
             if (ret < 0) ipv67d_log(log, "ipv67d: failed to add configured peer");
@@ -525,22 +711,25 @@ int main(int argc, char **argv) {
     ipv67_syscall(&req);
     ret = format_ipv67_addr(&addr, addr_buf);
     if (ret >= 0 && addr_buf[0] != '.') {
+        address_ready = 1;
         printf("ipv67d: address = %s\n", addr_buf);
     } else {
-        puts("ipv67d: no address set (use ipv67cli setaddr <addr>)");
+        puts("ipv67d: no address set (use ipv67cli asn use)");
     }
 
     write_pid_file(pid_path);
     printf("ipv67d: running (%s, log: %s)\n", peer_mode ? "peer" : "node", log_path);
     ipv67d_log(log, "ipv67d: started");
 
-    heartbeat_interval = 30000;
+    heartbeat_interval = (unsigned int)cfg.probe_interval;
+    if (heartbeat_interval < 1000) heartbeat_interval = 1000;
+    if (!manual_mode && address_ready) do_heartbeat(log, config_loaded ? &cfg : NULL, identity_loaded);
     last_heartbeat = getticks();
 
     while (1) {
         tick = getticks();
-        if (peer_mode && !manual_mode && tick - last_heartbeat >= heartbeat_interval) {
-            do_heartbeat(log);
+        if (!manual_mode && tick - last_heartbeat >= heartbeat_interval) {
+            do_heartbeat(log, config_loaded ? &cfg : NULL, identity_loaded);
             last_heartbeat = tick;
         }
         leb_syscall1(LEB_SYSCALL_SLEEP, 1000);

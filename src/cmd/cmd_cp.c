@@ -45,7 +45,7 @@ int cmd_cp(int argc, char **argv) {
 
     size = 0;
     type = 0;
-    if (vfs_stat(sfd, &size, &type) < 0 || (type & 0x02)) {
+    if (vfs_stat(sfd, &size, &type) < 0 || (type & 0x07) == 0x02) {
         fprintf(stderr, "cp: '%s' is not a regular file\n", src);
         vfs_close_fd(sfd);
         return 1;
