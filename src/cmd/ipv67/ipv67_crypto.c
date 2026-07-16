@@ -487,7 +487,7 @@ int ipv67_save_seed_to(const char *path, const uint8_t seed[IPV67_SEED_SIZE])
     int last_slash;
     int i;
 
-    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd < 0) {
         len = 0;
         while (path[len] && len < 255) len++;
@@ -500,7 +500,7 @@ int ipv67_save_seed_to(const char *path, const uint8_t seed[IPV67_SEED_SIZE])
             dir[last_slash] = '\0';
             mkdir(dir, 0755);
         }
-        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC);
+        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
         if (fd < 0) return -1;
     }
     w = write(fd, seed, IPV67_SEED_SIZE);

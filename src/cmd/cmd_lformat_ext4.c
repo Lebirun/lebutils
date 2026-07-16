@@ -256,6 +256,13 @@ int cmd_lformat_ext4(int argc, char **argv) {
     lf_dirent_t *dotdot;
     lf_dirent_t *end;
     lf_inode_t *ri;
+    lf_gd_t gd0;
+    uint32_t batch;
+    uint32_t chunk;
+    uint32_t remain;
+    uint32_t n;
+    uint8_t *zbuf;
+    off_t zpos;
     uint8_t uuid[16];
 
     fd = -1;
@@ -456,34 +463,25 @@ int cmd_lformat_ext4(int argc, char **argv) {
         lf_write_block(fd, ib_block, block_buf);
 
         memset(block_buf, 0, BLOCK_SIZE);
-        {
-            uint32_t batch;
-            uint32_t chunk;
-            uint32_t remain;
-            uint8_t *zbuf;
-            off_t zpos;
-
-            batch = 32;
-            zbuf = (uint8_t *)malloc(batch * BLOCK_SIZE);
-            if (zbuf) {
-                memset(zbuf, 0, batch * BLOCK_SIZE);
-                remain = inode_table_blocks;
-                chunk = 0;
-                while (remain > 0) {
-                    uint32_t n;
-                    n = remain > batch ? batch : remain;
-                    zpos = lseek(fd, (off_t)(it_block + chunk) * BLOCK_SIZE, SEEK_SET);
-                    if (zpos >= 0) {
-                        vfs_write_fd(fd, zbuf, n * BLOCK_SIZE);
-                    }
-                    chunk += n;
-                    remain -= n;
+        batch = 32;
+        zbuf = (uint8_t *)malloc(batch * BLOCK_SIZE);
+        if (zbuf) {
+            memset(zbuf, 0, batch * BLOCK_SIZE);
+            remain = inode_table_blocks;
+            chunk = 0;
+            while (remain > 0) {
+                n = remain > batch ? batch : remain;
+                zpos = lseek(fd, (off_t)(it_block + chunk) * BLOCK_SIZE, SEEK_SET);
+                if (zpos >= 0) {
+                    vfs_write_fd(fd, zbuf, n * BLOCK_SIZE);
                 }
-                free(zbuf);
-            } else {
-                for (bit = 0; bit < inode_table_blocks; bit++) {
-                    lf_write_block(fd, it_block + bit, block_buf);
-                }
+                chunk += n;
+                remain -= n;
+            }
+            free(zbuf);
+        } else {
+            for (bit = 0; bit < inode_table_blocks; bit++) {
+                lf_write_block(fd, it_block + bit, block_buf);
             }
         }
     }
@@ -554,15 +552,12 @@ int cmd_lformat_ext4(int argc, char **argv) {
     memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
     lf_write_block(fd, 0, block_buf);
 
-    {
-        lf_gd_t gd0;
-        memset(&gd0, 0, sizeof(gd0));
-        lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
-        vfs_read_fd(fd, &gd0, 32);
-        gd0.bg_free_blocks_count_lo = (uint16_t)(gd0.bg_free_blocks_count_lo - 1);
-        lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
-        vfs_write_fd(fd, &gd0, 32);
-    }
+    memset(&gd0, 0, sizeof(gd0));
+    lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
+    vfs_read_fd(fd, &gd0, 32);
+    gd0.bg_free_blocks_count_lo = (uint16_t)(gd0.bg_free_blocks_count_lo - 1);
+    lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
+    vfs_write_fd(fd, &gd0, 32);
 
     fsync(fd);
     vfs_close_fd(fd);
