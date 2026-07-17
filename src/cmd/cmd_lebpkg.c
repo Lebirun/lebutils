@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 #include "cu.h"
 
 #define LEBPKG_CONF_DIR    "/etc/lebpkg"

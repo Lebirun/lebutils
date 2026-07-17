@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 #include "cu.h"
 
 static unsigned int ping_parse_ip(const char *s) {

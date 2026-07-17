@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 
 #include "cu.h"
 

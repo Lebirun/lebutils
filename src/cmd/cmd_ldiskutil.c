@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 #include "cu.h"
 
 #define SECTOR_SIZE 512

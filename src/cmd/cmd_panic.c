@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 #include "cu.h"
 
 #define PANIC_CMD_CUSTOM  0

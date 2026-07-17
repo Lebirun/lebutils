@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <lebirun.h>
+#include <lebirun/syscall.h>
 #include "../ipv67_crypto.h"
 
 #define IPV67_CMD_INIT         0
