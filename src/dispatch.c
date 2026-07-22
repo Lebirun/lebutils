@@ -149,6 +149,18 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_FILE
     {"file", cmd_file},
 #endif
+#ifdef CONFIG_CMD_LESS
+    {"less", cmd_less},
+#endif
+#ifdef CONFIG_CMD_DIFF
+    {"diff", cmd_diff},
+#endif
+#ifdef CONFIG_CMD_TRUNCATE
+    {"truncate", cmd_truncate},
+#endif
+#ifdef CONFIG_CMD_SUDO
+    {"sudo", cmd_sudo},
+#endif
 #ifdef CONFIG_CMD_PING
     {"ping", cmd_ping},
 #endif

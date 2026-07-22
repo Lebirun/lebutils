@@ -144,6 +144,18 @@ int cmd_dmesg(int argc, char **argv);
 #ifdef CONFIG_CMD_FILE
 int cmd_file(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_LESS
+int cmd_less(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_DIFF
+int cmd_diff(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_TRUNCATE
+int cmd_truncate(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_SUDO
+int cmd_sudo(int argc, char **argv);
+#endif
 #ifdef CONFIG_CMD_PING
 int cmd_ping(int argc, char **argv);
 #endif

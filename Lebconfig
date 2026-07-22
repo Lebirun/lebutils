@@ -25,6 +25,9 @@ subcategory "Software" {
         item type=bool name="clear" default=enable id=clear alias="COMMAND_CLEAR" help="Enable the 'clear' command - clears the terminal screen"
         item type=bool name="hexdump" default=enable id=hexdump alias="COMMAND_HEXDUMP" help="Enable the 'hexdump' command - displays file contents in hexadecimal"
         item type=bool name="file" default=enable id=file alias="COMMAND_FILE" help="Enable the 'file' command - determines file type by magic number"
+        item type=bool name="less" default=enable id=less alias="COMMAND_LESS" help="Enable the 'less' command - interactively pages through text"
+        item type=bool name="diff" default=enable id=diff alias="COMMAND_DIFF" help="Enable the 'diff' command - compares text files"
+        item type=bool name="truncate" default=enable id=truncate alias="COMMAND_TRUNCATE" help="Enable the 'truncate' command - changes file sizes"
         item type=bool name="hostname" default=enable id=hostname alias="COMMAND_HOSTNAME" help="Enable the 'hostname' command - prints the system hostname"
         item type=bool name="whoami" default=enable id=whoami alias="COMMAND_WHOAMI" help="Enable the 'whoami' command - prints the current user name"
         item type=bool name="chmod" default=enable id=chmod alias="COMMAND_CHMOD" help="Enable the 'chmod' command - changes file permission bits"
@@ -44,6 +47,7 @@ subcategory "Software" {
         item type=bool name="dmesg" default=enable id=dmesg alias="COMMAND_DMESG" help="Enable the 'dmesg' command - prints kernel ring buffer messages"
     }
     subcategory "User Management" {
+        item type=bool name="sudo" default=enable id=sudo alias="COMMAND_SUDO" help="Enable the 'sudo' command - executes commands as root after authentication"
         item type=bool name="passwd" default=enable id=passwd alias="COMMAND_PASSWD" help="Enable the 'passwd' command - change user passwords"
         item type=bool name="useradd" default=enable id=useradd alias="COMMAND_USERADD" help="Enable the 'useradd' command - create new user accounts (requires root)"
         item type=bool name="userdel" default=enable id=userdel alias="COMMAND_USERDEL" help="Enable the 'userdel' command - delete user accounts (requires root)"

@@ -175,6 +175,18 @@ endif
 ifeq ($(COMMAND_FILE),y)
 CONFIG_DEFINES += -DCONFIG_CMD_FILE
 endif
+ifeq ($(COMMAND_LESS),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LESS
+endif
+ifeq ($(COMMAND_DIFF),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DIFF
+endif
+ifeq ($(COMMAND_TRUNCATE),y)
+CONFIG_DEFINES += -DCONFIG_CMD_TRUNCATE
+endif
+ifeq ($(COMMAND_SUDO),y)
+CONFIG_DEFINES += -DCONFIG_CMD_SUDO
+endif
 ifeq ($(COMMAND_PING),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PING
 endif
@@ -328,6 +340,18 @@ LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_dmesg.c
 endif
 ifeq ($(COMMAND_FILE),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_file.c
+endif
+ifeq ($(COMMAND_LESS),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_less.c
+endif
+ifeq ($(COMMAND_DIFF),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_diff.c
+endif
+ifeq ($(COMMAND_TRUNCATE),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_truncate.c
+endif
+ifeq ($(COMMAND_SUDO),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_sudo.c
 endif
 ifeq ($(COMMAND_PING),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ping.c
@@ -485,6 +509,18 @@ endif
 ifeq ($(COMMAND_FILE),y)
 BIN_TARGETS += file
 endif
+ifeq ($(COMMAND_LESS),y)
+BIN_TARGETS += less
+endif
+ifeq ($(COMMAND_DIFF),y)
+BIN_TARGETS += diff
+endif
+ifeq ($(COMMAND_TRUNCATE),y)
+BIN_TARGETS += truncate
+endif
+ifeq ($(COMMAND_SUDO),y)
+BIN_TARGETS += sudo
+endif
 ifeq ($(COMMAND_PING),y)
 BIN_TARGETS += ping
 endif
@@ -572,9 +608,10 @@ stage: all
 	$(Q)mkdir -p $(SYSROOT_SBIN)
 	$(Q)cp $(BINDIR)/lebu.bin $(SYSROOT_BIN)/lebu
 	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebu
-	@for app in $(filter-out lebu $(SBIN_APPS),$(BIN_TARGETS)); do \
+	@for app in $(filter-out lebu sudo $(SBIN_APPS),$(BIN_TARGETS)); do \
 		ln -sf lebu $(SYSROOT_BIN)/$$app; \
 	done
+	@[ -f $(BINDIR)/sudo.bin ] && { rm -f $(SYSROOT_BIN)/sudo; cp $(BINDIR)/sudo.bin $(SYSROOT_BIN)/sudo; $(STRIP) -s $(SYSROOT_BIN)/sudo; chmod 4755 $(SYSROOT_BIN)/sudo; } || true
 	@[ -f $(BINDIR)/echo.bin ] && { rm -f $(SYSROOT_BIN)/echo; cp $(BINDIR)/echo.bin $(SYSROOT_BIN)/echo; $(STRIP) -s $(SYSROOT_BIN)/echo; } || true
 	@[ -f $(BINDIR)/free.bin ] && { rm -f $(SYSROOT_BIN)/free; cp $(BINDIR)/free.bin $(SYSROOT_BIN)/free; $(STRIP) -s $(SYSROOT_BIN)/free; } || true
 	@for app in $(SBIN_APPS); do \
