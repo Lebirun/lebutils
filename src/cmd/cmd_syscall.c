@@ -2,7 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdint.h>
 #include "cu.h"
+
+#define LEBIRUN_SYSCALL_FLAG 0x80000000u
 
 struct syscall_entry {
     const char *name;
@@ -283,6 +286,20 @@ static const struct syscall_entry syscall_table[] = {
     {"crypto", 271},
     {"vfs_mount", 272},
     {"vfs_umount", 273},
+    {"panic", 274},
+    {"blockdev_rescan", 275},
+    {"net_http_get_alloc", 276},
+    {"lke_load", 277},
+    {"lke_unload", 278},
+    {"lke_list", 279},
+    {"ipv67", 280},
+    {"sched_setparam", 281},
+    {"sched_getparam", 282},
+    {"sched_setscheduler", 283},
+    {"sched_getscheduler", 284},
+    {"sched_get_priority_max", 285},
+    {"sched_get_priority_min", 286},
+    {"sched_rr_get_interval", 287},
     {NULL, 0}
 };
 
@@ -454,6 +471,7 @@ int cmd_syscall(int argc, char **argv)
     int argi;
     const char *name;
     const char *nr_str;
+    int call_nr;
 
     buf_mode = 0;
     buf_size = 0;
@@ -496,7 +514,7 @@ int cmd_syscall(int argc, char **argv)
             }
             argi++;
             if (nargs < 3)
-                args[nargs++] = (int)(unsigned int)argv[argi];
+                args[nargs++] = (int)(uintptr_t)argv[argi];
             if (nargs < 3)
                 args[nargs++] = (int)strlen(argv[argi]);
             argi++;
@@ -522,6 +540,7 @@ int cmd_syscall(int argc, char **argv)
     }
 
     name = syscall_name(nr);
+    call_nr = (int)((unsigned int)nr | LEBIRUN_SYSCALL_FLAG);
 
     if (buf_mode) {
         buf = (unsigned char *)malloc(buf_size);
@@ -530,7 +549,7 @@ int cmd_syscall(int argc, char **argv)
             return 1;
         }
         memset(buf, 0, buf_size);
-        ret = do_syscall3(nr, (int)(unsigned int)buf, buf_size,
+        ret = do_syscall3(call_nr, (int)(uintptr_t)buf, buf_size,
                           (nargs > 0) ? args[0] : 0);
         if (name)
             printf("syscall(%s[%d], buf, %d) = %d (0x%08x)\n",
@@ -542,13 +561,13 @@ int cmd_syscall(int argc, char **argv)
         free(buf);
     } else {
         if (nargs == 0)
-            ret = do_syscall0(nr);
+            ret = do_syscall0(call_nr);
         else if (nargs == 1)
-            ret = do_syscall1(nr, args[0]);
+            ret = do_syscall1(call_nr, args[0]);
         else if (nargs == 2)
-            ret = do_syscall2(nr, args[0], args[1]);
+            ret = do_syscall2(call_nr, args[0], args[1]);
         else
-            ret = do_syscall3(nr, args[0], args[1], args[2]);
+            ret = do_syscall3(call_nr, args[0], args[1], args[2]);
 
         if (name)
             printf("syscall(%s[%d]) = %d (0x%08x)\n",
