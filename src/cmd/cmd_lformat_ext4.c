@@ -16,6 +16,7 @@
 #define BLOCK_SIZE    4096
 #define INODE_SIZE    256
 #define SECT_SIZE     512
+#define ZERO_BATCH_BLOCKS 16
 
 typedef struct {
     uint32_t s_inodes_count;
@@ -180,33 +181,83 @@ typedef struct {
     char     name[255];
 } __attribute__((packed)) lf_dirent_t;
 
-static int lf_write_block(int fd, uint32_t block, const uint8_t *data) {
+static int lf_write_exact_at(int fd, off_t offset, const void *data,
+                             uint32_t size) {
+    const uint8_t *bytes;
+    uint32_t done;
     int ret;
     off_t pos;
 
-    pos = lseek(fd, (off_t)block * BLOCK_SIZE, SEEK_SET);
+    pos = lseek(fd, offset, SEEK_SET);
     if (pos < 0) {
-        fprintf(stderr, "lformat.ext4: lseek to block %u failed (%d)\n", block, (int)pos);
+        fprintf(stderr, "lformat.ext4: seek to %lld failed (%d)\n",
+                (long long)offset, (int)pos);
         return -1;
     }
-    ret = vfs_write_fd(fd, data, BLOCK_SIZE);
-    if (ret != BLOCK_SIZE) {
-        fprintf(stderr, "lformat.ext4: write block %u failed (got %d)\n", block, ret);
+    bytes = (const uint8_t *)data;
+    done = 0;
+    while (done < size) {
+        ret = vfs_write_fd(fd, bytes + done, size - done);
+        if (ret <= 0 || (uint32_t)ret > size - done) {
+            fprintf(stderr, "lformat.ext4: write at %lld failed (%d)\n",
+                    (long long)(offset + done), ret);
+            return -1;
+        }
+        done += (uint32_t)ret;
+    }
+    return 0;
+}
+
+static int lf_read_exact_at(int fd, off_t offset, void *data, uint32_t size) {
+    uint8_t *bytes;
+    uint32_t done;
+    int ret;
+    off_t pos;
+
+    pos = lseek(fd, offset, SEEK_SET);
+    if (pos < 0) {
+        fprintf(stderr, "lformat.ext4: seek to %lld failed (%d)\n",
+                (long long)offset, (int)pos);
         return -1;
     }
-    return ret;
+    bytes = (uint8_t *)data;
+    done = 0;
+    while (done < size) {
+        ret = vfs_read_fd(fd, bytes + done, size - done);
+        if (ret <= 0 || (uint32_t)ret > size - done) {
+            fprintf(stderr, "lformat.ext4: read at %lld failed (%d)\n",
+                    (long long)(offset + done), ret);
+            return -1;
+        }
+        done += (uint32_t)ret;
+    }
+    return 0;
+}
+
+static int lf_write_block(int fd, uint32_t block, const uint8_t *data) {
+    return lf_write_exact_at(fd, (off_t)block * BLOCK_SIZE, data,
+                             BLOCK_SIZE);
+}
+
+static void lf_emit_progress(int enabled, uint32_t current, uint32_t total) {
+    if (!enabled) return;
+    fprintf(stderr, "LEBFORMAT_PROGRESS %u %u\n", current, total);
+    fflush(stderr);
 }
 
 static void lf_gen_uuid(uint8_t *uuid) {
     int rfd;
+    int got;
     int i;
     uint32_t v;
 
+    got = 0;
     rfd = vfs_open("/dev/urandom", 0);
     if (rfd >= 0) {
-        vfs_read_fd(rfd, uuid, 16);
+        got = vfs_read_fd(rfd, uuid, 16);
         vfs_close_fd(rfd);
-    } else {
+    }
+    if (got != 16) {
         v = (uint32_t)getticks();
         for (i = 0; i < 16; i++) {
             v = v * 1103515245 + 12345;
@@ -262,7 +313,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     uint32_t remain;
     uint32_t n;
     uint8_t *zbuf;
-    off_t zpos;
+    int progress_enabled;
     uint8_t uuid[16];
 
     fd = -1;
@@ -271,7 +322,9 @@ int cmd_lformat_ext4(int argc, char **argv) {
     sb = NULL;
     gd = NULL;
     inode = NULL;
+    zbuf = NULL;
     ret = 1;
+    progress_enabled = 0;
 
     label = "";
     if (argc < 2) {
@@ -282,8 +335,10 @@ int cmd_lformat_ext4(int argc, char **argv) {
     }
 
     devpath = argv[1];
-    for (i = 2; i < argc - 1; i++) {
-        if (strcmp(argv[i], "-L") == 0) {
+    for (i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "--progress") == 0) {
+            progress_enabled = 1;
+        } else if (strcmp(argv[i], "-L") == 0 && i + 1 < argc) {
             label = argv[i + 1];
             i++;
         }
@@ -353,6 +408,8 @@ int cmd_lformat_ext4(int argc, char **argv) {
         printf("lformat.ext4: out of memory\n");
         goto out;
     }
+    zbuf = (uint8_t *)malloc(ZERO_BATCH_BLOCKS * BLOCK_SIZE);
+    if (zbuf) memset(zbuf, 0, ZERO_BATCH_BLOCKS * BLOCK_SIZE);
 
     lf_gen_uuid(uuid);
 
@@ -398,7 +455,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
     memset(block_buf, 0, BLOCK_SIZE);
     memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
-    lf_write_block(fd, 0, block_buf);
+    if (lf_write_block(fd, 0, block_buf) < 0) goto out;
 
     for (g = 0; g < groups; g++) {
         blk = g * blocks_per_group;
@@ -430,8 +487,8 @@ int cmd_lformat_ext4(int argc, char **argv) {
         free_blocks += gd->bg_free_blocks_count_lo;
 
         memset(block_buf, 0, BLOCK_SIZE);
-        lseek(fd, (off_t)BLOCK_SIZE + (off_t)g * 32, SEEK_SET);
-        vfs_write_fd(fd, gd, 32);
+        if (lf_write_exact_at(fd, (off_t)BLOCK_SIZE + (off_t)g * 32,
+                              gd, 32) < 0) goto out;
 
         memset(block_buf, 0, BLOCK_SIZE);
         for (bit = 0; bit < used_blocks; bit++) {
@@ -447,7 +504,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
             byte_idx = bit / 8;
             block_buf[byte_idx] |= (1 << (bit & 7));
         }
-        lf_write_block(fd, bb_block, block_buf);
+        if (lf_write_block(fd, bb_block, block_buf) < 0) goto out;
 
         memset(block_buf, 0, BLOCK_SIZE);
         if (g == 0) {
@@ -460,30 +517,28 @@ int cmd_lformat_ext4(int argc, char **argv) {
             byte_idx = bit / 8;
             block_buf[byte_idx] |= (1 << (bit & 7));
         }
-        lf_write_block(fd, ib_block, block_buf);
+        if (lf_write_block(fd, ib_block, block_buf) < 0) goto out;
 
         memset(block_buf, 0, BLOCK_SIZE);
-        batch = 32;
-        zbuf = (uint8_t *)malloc(batch * BLOCK_SIZE);
+        batch = ZERO_BATCH_BLOCKS;
         if (zbuf) {
-            memset(zbuf, 0, batch * BLOCK_SIZE);
             remain = inode_table_blocks;
             chunk = 0;
             while (remain > 0) {
                 n = remain > batch ? batch : remain;
-                zpos = lseek(fd, (off_t)(it_block + chunk) * BLOCK_SIZE, SEEK_SET);
-                if (zpos >= 0) {
-                    vfs_write_fd(fd, zbuf, n * BLOCK_SIZE);
-                }
+                if (lf_write_exact_at(fd,
+                        (off_t)(it_block + chunk) * BLOCK_SIZE, zbuf,
+                        n * BLOCK_SIZE) < 0) goto out;
                 chunk += n;
                 remain -= n;
             }
-            free(zbuf);
         } else {
             for (bit = 0; bit < inode_table_blocks; bit++) {
-                lf_write_block(fd, it_block + bit, block_buf);
+                if (lf_write_block(fd, it_block + bit, block_buf) < 0)
+                    goto out;
             }
         }
+        lf_emit_progress(progress_enabled, g + 1, groups);
     }
 
     first_data = 1 + gdt_blocks + 1 + 1 + inode_table_blocks;
@@ -506,8 +561,8 @@ int cmd_lformat_ext4(int argc, char **argv) {
         goto out;
     }
 
-    lseek(fd, (off_t)it_block * BLOCK_SIZE, SEEK_SET);
-    vfs_read_fd(fd, verify_buf, BLOCK_SIZE);
+    if (lf_read_exact_at(fd, (off_t)it_block * BLOCK_SIZE, verify_buf,
+                         BLOCK_SIZE) < 0) goto out;
     ri = (lf_inode_t *)(verify_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE);
     if (ri->i_mode == 0) {
         printf("lformat.ext4: WARNING: readback of root inode shows mode=0! Write may have failed.\n");
@@ -537,29 +592,30 @@ int cmd_lformat_ext4(int argc, char **argv) {
     end->name_len = 0;
     end->file_type = 0;
 
-    lf_write_block(fd, first_data, block_buf);
+    if (lf_write_block(fd, first_data, block_buf) < 0) goto out;
 
     bb_block = 1 + gdt_blocks;
     memset(block_buf, 0, BLOCK_SIZE);
-    lseek(fd, (off_t)bb_block * BLOCK_SIZE, SEEK_SET);
-    vfs_read_fd(fd, block_buf, BLOCK_SIZE);
+    if (lf_read_exact_at(fd, (off_t)bb_block * BLOCK_SIZE, block_buf,
+                         BLOCK_SIZE) < 0) goto out;
     byte_idx = first_data / 8;
     block_buf[byte_idx] |= (1 << (first_data & 7));
-    lf_write_block(fd, bb_block, block_buf);
+    if (lf_write_block(fd, bb_block, block_buf) < 0) goto out;
 
     sb->s_free_blocks_count_lo = free_blocks - 1;
     memset(block_buf, 0, BLOCK_SIZE);
     memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
-    lf_write_block(fd, 0, block_buf);
+    if (lf_write_block(fd, 0, block_buf) < 0) goto out;
 
     memset(&gd0, 0, sizeof(gd0));
-    lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
-    vfs_read_fd(fd, &gd0, 32);
+    if (lf_read_exact_at(fd, (off_t)BLOCK_SIZE, &gd0, 32) < 0) goto out;
     gd0.bg_free_blocks_count_lo = (uint16_t)(gd0.bg_free_blocks_count_lo - 1);
-    lseek(fd, (off_t)1 * BLOCK_SIZE, SEEK_SET);
-    vfs_write_fd(fd, &gd0, 32);
+    if (lf_write_exact_at(fd, (off_t)BLOCK_SIZE, &gd0, 32) < 0) goto out;
 
-    fsync(fd);
+    if (fsync(fd) != 0) {
+        fprintf(stderr, "lformat.ext4: fsync failed\n");
+        goto out;
+    }
     vfs_close_fd(fd);
     fd = -1;
 
@@ -583,5 +639,6 @@ out:
     free(sb);
     free(gd);
     free(inode);
+    free(zbuf);
     return ret;
 }
