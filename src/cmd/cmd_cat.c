@@ -1,39 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <lebirun/syscall.h>
 #include "cu.h"
 
 #define O_RDONLY 0
 
 static int show_line_numbers = 0;
-
-static __inline__ __attribute__((always_inline)) int cat_open(const char *path) {
-    return (int)leb_syscall2(LEB_SYSCALL_VFS_OPEN, (long)path, O_RDONLY);
-}
-
-static __inline__ __attribute__((always_inline)) int cat_close(int fd) {
-    return (int)leb_syscall1(LEB_SYSCALL_VFS_CLOSE, fd);
-}
-
-static __inline__ __attribute__((always_inline)) int cat_read(int fd, void *buf,
-                                                               unsigned int count) {
-    return (int)leb_syscall3(LEB_SYSCALL_VFS_READ, fd, (long)buf,
-                             (long)count);
-}
-
-static __inline__ __attribute__((always_inline)) int cat_stat(int fd,
-                                                               uint64_t *size,
-                                                               uint64_t *type) {
-    return (int)leb_syscall3(LEB_SYSCALL_VFS_STAT, fd, (long)size,
-                             (long)type);
-}
-
-static __inline__ __attribute__((always_inline)) int cat_write(int fd,
-                                                                const void *buf,
-                                                                unsigned int count) {
-    return (int)leb_syscall3(LEB_SYSCALL_WRITE, fd, (long)buf, (long)count);
-}
 
 static int cat_one(const char *arg) {
     char path[256];
@@ -44,7 +16,7 @@ static int cat_one(const char *arg) {
 
     if (cu_path_abs(arg, path, sizeof(path)) < 0) return 1;
 
-    fd = cat_open(path);
+    fd = vfs_open(path, O_RDONLY);
     if (fd < 0) {
         printf("cat: cannot open '%s'\n", path);
         return 1;
@@ -52,21 +24,21 @@ static int cat_one(const char *arg) {
 
     size = 0;
     type = 0;
-    if (cat_stat(fd, &size, &type) < 0) {
+    if (vfs_stat(fd, &size, &type) < 0) {
         printf("cat: cannot stat '%s'\n", path);
-        cat_close(fd);
+        vfs_close_fd(fd);
         return 1;
     }
     if ((type & 0x07) == 0x02) {
         printf("cat: '%s' is a directory\n", path);
-        cat_close(fd);
+        vfs_close_fd(fd);
         return 1;
     }
 
     line = 1;
     at_line_start = 1;
     last_char = '\n';
-    while ((rd = cat_read(fd, buf, sizeof(buf))) > 0) {
+    while ((rd = vfs_read_fd(fd, buf, sizeof(buf))) > 0) {
         if (show_line_numbers) {
             for (i = 0; i < rd; i++) {
                 if (at_line_start) {
@@ -77,14 +49,14 @@ static int cat_one(const char *arg) {
                 if (buf[i] == '\n') at_line_start = 1;
             }
         } else {
-            cat_write(STDOUT_FILENO, buf, (unsigned int)rd);
+            write(STDOUT_FILENO, buf, (unsigned int)rd);
         }
         last_char = buf[rd - 1];
     }
 
     if (rd < 0) {
         printf("cat: read error on '%s'\n", path);
-        cat_close(fd);
+        vfs_close_fd(fd);
         return 1;
     }
 
@@ -92,7 +64,7 @@ static int cat_one(const char *arg) {
         putchar('\n');
     }
 
-    cat_close(fd);
+    vfs_close_fd(fd);
     return 0;
 }
 
