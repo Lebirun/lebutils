@@ -239,12 +239,6 @@ static int lf_write_block(int fd, uint32_t block, const uint8_t *data) {
                              BLOCK_SIZE);
 }
 
-static void lf_emit_progress(int enabled, uint32_t current, uint32_t total) {
-    if (!enabled) return;
-    fprintf(stderr, "LEBFORMAT_PROGRESS %u %u\n", current, total);
-    fflush(stderr);
-}
-
 static void lf_gen_uuid(uint8_t *uuid) {
     int rfd;
     int got;
@@ -313,7 +307,6 @@ int cmd_lformat_ext4(int argc, char **argv) {
     uint32_t remain;
     uint32_t n;
     uint8_t *zbuf;
-    int progress_enabled;
     uint8_t uuid[16];
 
     fd = -1;
@@ -324,8 +317,6 @@ int cmd_lformat_ext4(int argc, char **argv) {
     inode = NULL;
     zbuf = NULL;
     ret = 1;
-    progress_enabled = 0;
-
     label = "";
     if (argc < 2) {
         printf("Usage: lformat.ext4 <device> [-L label]\n");
@@ -336,9 +327,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
     devpath = argv[1];
     for (i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "--progress") == 0) {
-            progress_enabled = 1;
-        } else if (strcmp(argv[i], "-L") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-L") == 0 && i + 1 < argc) {
             label = argv[i + 1];
             i++;
         }
@@ -538,7 +527,6 @@ int cmd_lformat_ext4(int argc, char **argv) {
                     goto out;
             }
         }
-        lf_emit_progress(progress_enabled, g + 1, groups);
     }
 
     first_data = 1 + gdt_blocks + 1 + 1 + inode_table_blocks;
@@ -566,8 +554,6 @@ int cmd_lformat_ext4(int argc, char **argv) {
     ri = (lf_inode_t *)(verify_buf + (EXT4_ROOT_INO - 1) * INODE_SIZE);
     if (ri->i_mode == 0) {
         printf("lformat.ext4: WARNING: readback of root inode shows mode=0! Write may have failed.\n");
-    } else {
-        printf("lformat.ext4: root inode written ok (mode=0x%04x)\n", ri->i_mode);
     }
 
     memset(block_buf, 0, BLOCK_SIZE);
