@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #include <lebirun.h>
 #include <lebirun/syscall.h>
 #include "cu.h"
@@ -144,15 +145,14 @@ static void ld_puts(const char *s) {
 static void ld_enable_raw(void) {
     struct termios raw;
 
-    tcgetattr(STDIN_FILENO, &ld_orig_termios);
+    if (tcgetattr(STDIN_FILENO, &ld_orig_termios) != 0) return;
     raw = ld_orig_termios;
     raw.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
     raw.c_oflag &= ~(OPOST);
     raw.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
-    tcsetattr(STDIN_FILENO, 0, &raw);
-    ld_raw_on = 1;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0) ld_raw_on = 1;
 }
 
 static void ld_disable_raw(void) {
@@ -164,16 +164,16 @@ static void ld_disable_raw(void) {
 
 static int ld_read_key(void) {
     char c;
+    char seq[4];
     int n;
 
     n = read(STDIN_FILENO, &c, 1);
     if (n <= 0) return -1;
 
     if (c == '\x1b') {
-        char seq[4];
         if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
         if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
-        if (seq[0] == '[') {
+        if (seq[0] == '[' || seq[0] == 'O') {
             if (seq[1] == 'A') return LD_KEY_UP;
             if (seq[1] == 'B') return LD_KEY_DOWN;
             if (seq[1] == 'C') return LD_KEY_RIGHT;
@@ -1568,6 +1568,7 @@ static int ld_is_whole_disk(const char *name) {
 }
 
 static int ld_tui(const char *devpath) {
+    struct winsize winsize;
     unsigned int width;
     unsigned int height;
     unsigned int bpp;
@@ -1577,6 +1578,7 @@ static int ld_tui(const char *devpath) {
     unsigned int font_w;
     unsigned int cols;
     const char *p;
+    int key;
 
     memset(&S, 0, sizeof(S));
 
@@ -1593,9 +1595,16 @@ static int ld_tui(const char *devpath) {
     strncpy(S.disk.devname, p, sizeof(S.disk.devname) - 1);
     strncpy(S.disk.devpath, devpath, sizeof(S.disk.devpath) - 1);
 
-    fb_getinfo(&width, &height, &bpp, &font_h, &rows, &cursor_row, &font_w, &cols);
-    S.screen_rows = (int)rows;
-    S.screen_cols = (int)cols;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize) == 0 &&
+        winsize.ws_row > 0 && winsize.ws_col > 0) {
+        S.screen_rows = (int)winsize.ws_row;
+        S.screen_cols = (int)winsize.ws_col;
+    } else {
+        fb_getinfo(&width, &height, &bpp, &font_h, &rows, &cursor_row,
+                   &font_w, &cols);
+        S.screen_rows = (int)rows;
+        S.screen_cols = (int)cols;
+    }
     if (S.screen_rows < 10) S.screen_rows = 24;
     if (S.screen_cols < 40) S.screen_cols = 80;
 
@@ -1606,12 +1615,15 @@ static int ld_tui(const char *devpath) {
     S.running = 1;
 
     ld_enable_raw();
+    if (!ld_raw_on) {
+        fprintf(stderr, "ldiskutil: unable to configure terminal\n");
+        return 1;
+    }
     ld_puts("\x1b[?1049h");
     ld_clear_screen();
     ld_draw_all();
 
     while (S.running) {
-        int key;
         key = ld_read_key();
         if (key < 0) continue;
         ld_process_key(key);
