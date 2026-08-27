@@ -2,40 +2,54 @@
 #include <unistd.h>
 #include "cu.h"
 
-static int cu_is_sep(char c) { return c == '/'; }
+static int cu_is_sep(char c)
+{
+    return c == '/';
+}
 
-int cu_path_abs(const char *in, char *out, unsigned int outsz) {
-    if (!out || outsz == 0) return -1;
-    out[0] = '\0';
-
-    if (!in || !*in) return -1;
-
+static int __attribute__((cold))
+cu_path_abs_slow(const char *in, char *out, unsigned int outsz)
+{
     char tmp[512];
-    tmp[0] = '\0';
+    char cwd[256];
+    const char *parts[32];
+    char buf[512];
+    char *p;
+    char *start;
+    unsigned int n;
+    unsigned int need;
+    unsigned int clen;
+    unsigned int ilen;
+    unsigned int pos;
+    unsigned int can;
+    unsigned int tlen;
+    unsigned int len;
+    int pc;
+    int i;
 
+    tmp[0] = '\0';
     if (in[0] == '/') {
-        unsigned int n = (unsigned int)strlen(in);
+        n = (unsigned int)strlen(in);
         if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
         memcpy(tmp, in, n);
         tmp[n] = '\0';
     } else {
-        char cwd[256];
         if (!getcwd(cwd, sizeof(cwd))) return -1;
         if (strcmp(cwd, "/") == 0) {
-            unsigned int need = 1 + (unsigned int)strlen(in);
+            need = 1 + (unsigned int)strlen(in);
             if (need >= sizeof(tmp)) need = sizeof(tmp) - 1;
             tmp[0] = '/';
             tmp[1] = '\0';
             strncat(tmp, in, sizeof(tmp) - 2);
         } else {
-            unsigned int clen = (unsigned int)strlen(cwd);
-            unsigned int ilen = (unsigned int)strlen(in);
-            unsigned int pos = 0;
+            clen = (unsigned int)strlen(cwd);
+            ilen = (unsigned int)strlen(in);
+            pos = 0;
             if (clen >= sizeof(tmp)) clen = sizeof(tmp) - 1;
             memcpy(tmp, cwd, clen);
             pos = clen;
             if (pos + 1 < sizeof(tmp)) tmp[pos++] = '/';
-            unsigned int can = sizeof(tmp) - 1 - pos;
+            can = sizeof(tmp) - 1 - pos;
             if (ilen > can) ilen = can;
             memcpy(tmp + pos, in, ilen);
             pos += ilen;
@@ -43,19 +57,16 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz) {
         }
     }
 
-    const char *parts[32];
-    int pc = 0;
-    char buf[512];
-    unsigned int tlen = (unsigned int)strlen(tmp);
+    pc = 0;
+    tlen = (unsigned int)strlen(tmp);
     if (tlen >= sizeof(buf)) tlen = sizeof(buf) - 1;
     memcpy(buf, tmp, tlen);
     buf[tlen] = '\0';
-
-    char *p = buf;
+    p = buf;
     while (*p) {
         while (cu_is_sep(*p)) p++;
         if (!*p) break;
-        char *start = p;
+        start = p;
         while (*p && !cu_is_sep(*p)) p++;
         if (*p) *p++ = '\0';
         if (strcmp(start, ".") == 0) continue;
@@ -63,7 +74,8 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz) {
             if (pc > 0) pc--;
             continue;
         }
-        if (pc < (int)(sizeof(parts) / sizeof(parts[0]))) parts[pc++] = start;
+        if (pc < (int)(sizeof(parts) / sizeof(parts[0])))
+            parts[pc++] = start;
     }
 
     if (pc == 0) {
@@ -73,15 +85,56 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz) {
         return 0;
     }
 
-    unsigned int pos = 0;
+    pos = 0;
     out[pos++] = '/';
-    for (int i = 0; i < pc; i++) {
-        unsigned int len = (unsigned int)strlen(parts[i]);
+    for (i = 0; i < pc; i++) {
+        len = (unsigned int)strlen(parts[i]);
         if (pos + len + 1 >= outsz) break;
         memcpy(out + pos, parts[i], len);
         pos += len;
         if (i + 1 < pc) out[pos++] = '/';
     }
     out[pos] = '\0';
+    return 0;
+}
+
+int cu_path_abs(const char *in, char *out, unsigned int outsz)
+{
+    const char *p;
+    const char *segment;
+    size_t length;
+    size_t segment_length;
+    int normalized;
+
+    if (!out || outsz == 0) return -1;
+    out[0] = '\0';
+    if (!in || !*in) return -1;
+    if (in[0] != '/') return cu_path_abs_slow(in, out, outsz);
+
+    normalized = 1;
+    segment = in + 1;
+    p = segment;
+    while (*p) {
+        if (*p++ != '/') continue;
+        segment_length = (size_t)((p - 1) - segment);
+        if (segment_length == 0 ||
+            (segment_length == 1 && segment[0] == '.') ||
+            (segment_length == 2 && segment[0] == '.' &&
+             segment[1] == '.')) {
+            normalized = 0;
+            break;
+        }
+        segment = p;
+    }
+    segment_length = (size_t)(p - segment);
+    if ((segment_length == 1 && segment[0] == '.') ||
+        (segment_length == 2 && segment[0] == '.' && segment[1] == '.'))
+        normalized = 0;
+    if (p > in + 1 && p[-1] == '/') normalized = 0;
+    if (!normalized) return cu_path_abs_slow(in, out, outsz);
+
+    length = (size_t)(p - in);
+    if (length >= outsz) return cu_path_abs_slow(in, out, outsz);
+    memcpy(out, in, length + 1);
     return 0;
 }

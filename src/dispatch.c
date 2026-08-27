@@ -170,7 +170,9 @@ static const struct cu_cmd cu_cmds[] = {
 #define CU_CMD_COUNT (sizeof(cu_cmds) / sizeof(cu_cmds[0]) - 1)
 
 static const struct cu_cmd *cu_find(const char *name) {
-    for (unsigned int i = 0; i < CU_CMD_COUNT; i++) {
+    unsigned int i;
+
+    for (i = 0; i < CU_CMD_COUNT; i++) {
         if (cu_cmds[i].name && strcmp(cu_cmds[i].name, name) == 0) {
             return &cu_cmds[i];
         }
@@ -179,12 +181,15 @@ static const struct cu_cmd *cu_find(const char *name) {
 }
 
 void cu_print_commands(void) {
+    unsigned int i;
+    int first;
+
     if (CU_CMD_COUNT == 0) {
         puts("(no commands enabled)");
         return;
     }
-    int first = 1;
-    for (unsigned int i = 0; i < CU_CMD_COUNT; i++) {
+    first = 1;
+    for (i = 0; i < CU_CMD_COUNT; i++) {
         if (cu_cmds[i].name) {
             if (!first) putchar(' ');
             printf("%s", cu_cmds[i].name);
@@ -195,8 +200,10 @@ void cu_print_commands(void) {
 }
 
 int cu_dispatch_as(const char *applet, int argc, char **argv) {
+    const struct cu_cmd *cmd;
+
     if (!applet || !*applet) return 1;
-    const struct cu_cmd *cmd = cu_find(applet);
+    cmd = cu_find(applet);
     if (!cmd) {
         fprintf(stderr, "%s: unknown command\n", applet);
         return 127;
@@ -205,7 +212,9 @@ int cu_dispatch_as(const char *applet, int argc, char **argv) {
 }
 
 int cu_dispatch(int argc, char **argv) {
-    const char *applet = cu_basename((argc > 0 && argv) ? argv[0] : "");
+    const char *applet;
+
+    applet = cu_basename((argc > 0 && argv) ? argv[0] : "");
     if (!applet || !*applet) return 1;
     return cu_dispatch_as(applet, argc, argv);
 }

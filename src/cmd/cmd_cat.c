@@ -5,9 +5,7 @@
 
 #define O_RDONLY 0
 
-static int show_line_numbers = 0;
-
-static int cat_one(const char *arg) {
+static int cat_one(const char *arg, int show_line_numbers) {
     char path[256];
     int fd, rd, line, at_line_start, i;
     uint64_t size, type;
@@ -70,6 +68,7 @@ static int cat_one(const char *arg) {
 
 int cmd_cat(int argc, char **argv) {
     int file_count, i, rc;
+    int show_line_numbers;
     const char *p;
 
     show_line_numbers = 0;
@@ -101,7 +100,7 @@ int cmd_cat(int argc, char **argv) {
     rc = 0;
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] != '-') {
-            if (cat_one(argv[i]) != 0) rc = 1;
+            if (cat_one(argv[i], show_line_numbers) != 0) rc = 1;
         }
     }
     return rc;

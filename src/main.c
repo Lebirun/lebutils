@@ -17,7 +17,9 @@ static void cu_print_help(void) {
 }
 
 int cu_main(int argc, char **argv) {
-    const char *applet = cu_basename((argc > 0 && argv) ? argv[0] : "");
+    const char *applet;
+
+    applet = cu_basename((argc > 0 && argv) ? argv[0] : "");
 
     if (!applet || !*applet) return 1;
 
