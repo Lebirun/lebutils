@@ -7,19 +7,38 @@ struct cu_cmd {
     int (*fn)(int, char **);
 };
 
-static const struct cu_cmd cu_cmds[] = {
+const char cu_name_lebu[] __attribute__((section(".text.hot.user"))) = "lebu";
+const char cu_name_lebu_bin[] __attribute__((section(".text.hot.user"))) = "lebu.bin";
+const char cu_option_help[] __attribute__((section(".text.hot.user"))) = "--help";
+const char cu_option_help_short[] __attribute__((section(".text.hot.user"))) = "-h";
+static const char cu_name_echo[] __attribute__((section(".text.hot.user"))) = "echo";
+static const char cu_name_pwd[] __attribute__((section(".text.hot.user"))) = "pwd";
+static const char cu_name_ls[] __attribute__((section(".text.hot.user"))) = "ls";
+static const char cu_name_cat[] __attribute__((section(".text.hot.user"))) = "cat";
+#ifdef CONFIG_CMD_FREE
+static const char cu_name_free[] __attribute__((section(".text.hot.user"))) = "free";
+static const struct cu_cmd cu_free_cmd
+    __attribute__((section(".text.hot.user"))) = {cu_name_free, cmd_free};
+#endif
+
+static const struct cu_cmd cu_hot_cmds[]
+    __attribute__((section(".text.hot.user"))) = {
 #ifdef CONFIG_CMD_ECHO
-    {"echo", cmd_echo},
+    {cu_name_echo, cmd_echo},
 #endif
 #ifdef CONFIG_CMD_PWD
-    {"pwd", cmd_pwd},
+    {cu_name_pwd, cmd_pwd},
 #endif
 #ifdef CONFIG_CMD_LS
-    {"ls", cmd_ls},
+    {cu_name_ls, cmd_ls},
 #endif
 #ifdef CONFIG_CMD_CAT
-    {"cat", cmd_cat},
+    {cu_name_cat, cmd_cat},
 #endif
+    {NULL, NULL}
+};
+
+static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_TOUCH
     {"touch", cmd_touch},
 #endif
@@ -37,9 +56,6 @@ static const struct cu_cmd cu_cmds[] = {
 #endif
 #ifdef CONFIG_CMD_CRES
     {"cres", cmd_cres},
-#endif
-#ifdef CONFIG_CMD_FREE
-    {"free", cmd_free},
 #endif
 #ifdef CONFIG_CMD_DF
     {"df", cmd_df},
@@ -167,11 +183,20 @@ static const struct cu_cmd cu_cmds[] = {
     {NULL, NULL}
 };
 
+#define CU_HOT_CMD_COUNT (sizeof(cu_hot_cmds) / sizeof(cu_hot_cmds[0]) - 1)
 #define CU_CMD_COUNT (sizeof(cu_cmds) / sizeof(cu_cmds[0]) - 1)
 
 static const struct cu_cmd *cu_find(const char *name) {
     unsigned int i;
 
+    for (i = 0; i < CU_HOT_CMD_COUNT; i++) {
+        if (strcmp(cu_hot_cmds[i].name, name) == 0) {
+            return &cu_hot_cmds[i];
+        }
+    }
+#ifdef CONFIG_CMD_FREE
+    if (strcmp(cu_free_cmd.name, name) == 0) return &cu_free_cmd;
+#endif
     for (i = 0; i < CU_CMD_COUNT; i++) {
         if (cu_cmds[i].name && strcmp(cu_cmds[i].name, name) == 0) {
             return &cu_cmds[i];
@@ -184,11 +209,16 @@ void cu_print_commands(void) {
     unsigned int i;
     int first;
 
-    if (CU_CMD_COUNT == 0) {
+    if (CU_HOT_CMD_COUNT == 0 && CU_CMD_COUNT == 0) {
         puts("(no commands enabled)");
         return;
     }
     first = 1;
+    for (i = 0; i < CU_HOT_CMD_COUNT; i++) {
+        if (!first) putchar(' ');
+        printf("%s", cu_hot_cmds[i].name);
+        first = 0;
+    }
     for (i = 0; i < CU_CMD_COUNT; i++) {
         if (cu_cmds[i].name) {
             if (!first) putchar(' ');

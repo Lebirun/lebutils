@@ -104,6 +104,7 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz)
     const char *segment;
     size_t length;
     size_t segment_length;
+    size_t i;
     int normalized;
 
     if (!out || outsz == 0) return -1;
@@ -135,6 +136,6 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz)
 
     length = (size_t)(p - in);
     if (length >= outsz) return cu_path_abs_slow(in, out, outsz);
-    memcpy(out, in, length + 1);
+    for (i = 0; i <= length; i++) out[i] = in[i];
     return 0;
 }

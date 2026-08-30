@@ -1,12 +1,79 @@
-#include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "cu.h"
 
 #define UNIT_KB 0
 #define UNIT_MB 1
 #define UNIT_GB 2
 #define UNIT_HUMAN 3
+
+static void free_write_all(int fd, const char *data, size_t size) {
+    ssize_t written;
+
+    while (size > 0) {
+        written = write(fd, data, size);
+        if (written <= 0) return;
+        data += written;
+        size -= (size_t)written;
+    }
+}
+
+static char *free_append(char *out, const char *text) {
+    while (*text) *out++ = *text++;
+    return out;
+}
+
+static char *free_append_uint(char *out, unsigned int value,
+                              unsigned int width, int zero_pad) {
+    char digits[16];
+    unsigned int length;
+    unsigned int padding;
+
+    length = 0;
+    do {
+        digits[length++] = (char)('0' + value % 10);
+        value /= 10;
+    } while (value);
+    padding = width > length ? width - length : 0;
+    while (padding--) *out++ = zero_pad ? '0' : ' ';
+    while (length) *out++ = digits[--length];
+    return out;
+}
+
+static char *free_append_scaled(char *out, unsigned int value,
+                                unsigned int divisor, unsigned int width,
+                                unsigned int decimals, const char *suffix) {
+    unsigned int integer;
+    unsigned int fraction;
+    unsigned int scale;
+
+    integer = value / divisor;
+    scale = decimals == 1 ? 10 : 100;
+    fraction = (value % divisor) * scale / divisor;
+    out = free_append_uint(out, integer, width, 0);
+    if (decimals) {
+        *out++ = '.';
+        out = free_append_uint(out, fraction, decimals, 1);
+    }
+    return free_append(out, suffix);
+}
+
+static unsigned int free_read_value(const char *line) {
+    const char *p;
+    unsigned int value;
+
+    p = line;
+    while (*p && *p != ':') p++;
+    if (*p) p++;
+    while (*p == ' ' || *p == '\t') p++;
+    value = 0;
+    while (*p >= '0' && *p <= '9') {
+        value = value * 10 + (unsigned int)(*p - '0');
+        p++;
+    }
+    return value;
+}
 
 int cmd_free(int argc, char **argv) {
     int unit_mode;
@@ -21,6 +88,14 @@ int cmd_free(int argc, char **argv) {
     char buf[512];
     int n;
     char *line;
+    char out[256];
+    char *out_end;
+    unsigned int divisor;
+    unsigned int width;
+    unsigned int decimals;
+    const char *prefix;
+    const char *suffix;
+    const char *last_suffix;
     
     unit_mode = UNIT_KB;
     show_help = 0;
@@ -44,18 +119,26 @@ int cmd_free(int argc, char **argv) {
     }
     
     if (show_help) {
-        printf("Usage: free [OPTION]\n");
-        printf("Display memory usage statistics.\n\n");
-        printf("  -h         show sizes in human readable format\n");
-        printf("  -M         show sizes in MB\n");
-        printf("  -G         show sizes in GB\n");
-        printf("  --help     display this help\n");
+        free_write_all(1,
+            "Usage: free [OPTION]\n"
+            "Display memory usage statistics.\n\n"
+            "  -h         show sizes in human readable format\n"
+            "  -M         show sizes in MB\n"
+            "  -G         show sizes in GB\n"
+            "  --help     display this help\n",
+            sizeof("Usage: free [OPTION]\n"
+                   "Display memory usage statistics.\n\n"
+                   "  -h         show sizes in human readable format\n"
+                   "  -M         show sizes in MB\n"
+                   "  -G         show sizes in GB\n"
+                   "  --help     display this help\n") - 1);
         return 0;
     }
     
     fd = vfs_open("/proc/meminfo", O_RDONLY);
     if (fd < 0) {
-        fprintf(stderr, "free: cannot open /proc/meminfo\n");
+        free_write_all(2, "free: cannot open /proc/meminfo\n",
+                       sizeof("free: cannot open /proc/meminfo\n") - 1);
         return 1;
     }
     
@@ -63,48 +146,20 @@ int cmd_free(int argc, char **argv) {
     vfs_close_fd(fd);
     
     if (n < 0) {
-        fprintf(stderr, "free: cannot read /proc/meminfo\n");
+        free_write_all(2, "free: cannot read /proc/meminfo\n",
+                       sizeof("free: cannot read /proc/meminfo\n") - 1);
         return 1;
     }
     buf[n] = '\0';
     
     line = buf;
     while (*line) {
-        if (strncmp(line, "MemTotal:", 9) == 0) {
-            p = line + 9;
-            while (*p == ' ' || *p == '\t') p++;
-            mem_total = 0;
-            while (*p >= '0' && *p <= '9') {
-                mem_total = mem_total * 10 + (*p - '0');
-                p++;
-            }
-        }
-        else if (strncmp(line, "MemFree:", 8) == 0) {
-            p = line + 8;
-            while (*p == ' ' || *p == '\t') p++;
-            mem_free = 0;
-            while (*p >= '0' && *p <= '9') {
-                mem_free = mem_free * 10 + (*p - '0');
-                p++;
-            }
-        }
-        else if (strncmp(line, "MemUsed:", 8) == 0) {
-            p = line + 8;
-            while (*p == ' ' || *p == '\t') p++;
-            mem_used = 0;
-            while (*p >= '0' && *p <= '9') {
-                mem_used = mem_used * 10 + (*p - '0');
-                p++;
-            }
-        }
-        else if (strncmp(line, "MemAllUsed:", 11) == 0) {
-            p = line + 11;
-            while (*p == ' ' || *p == '\t') p++;
-            mem_all_used = 0;
-            while (*p >= '0' && *p <= '9') {
-                mem_all_used = mem_all_used * 10 + (*p - '0');
-                p++;
-            }
+        if (line[0] == 'M' && line[1] == 'e' && line[2] == 'm') {
+            if (line[3] == 'T') mem_total = free_read_value(line);
+            else if (line[3] == 'F') mem_free = free_read_value(line);
+            else if (line[3] == 'U') mem_used = free_read_value(line);
+            else if (line[3] == 'A' && line[4] == 'l')
+                mem_all_used = free_read_value(line);
         }
         
         while (*line && *line != '\n') line++;
@@ -116,66 +171,41 @@ int cmd_free(int argc, char **argv) {
         mem_used = mem_all_used;
     }
     
-    printf("                 total         used     all used         free\n");
-    
-    switch (unit_mode) {
-    case UNIT_MB: {
-        unsigned int t_i = mem_total / 1024;
-        unsigned int t_d = (mem_total % 1024) * 100 / 1024;
-        unsigned int u_i = mem_used / 1024;
-        unsigned int u_d = (mem_used % 1024) * 100 / 1024;
-        unsigned int a_i = mem_all_used / 1024;
-        unsigned int a_d = (mem_all_used % 1024) * 100 / 1024;
-        unsigned int f_i = mem_free / 1024;
-        unsigned int f_d = (mem_free % 1024) * 100 / 1024;
-        printf("Mem:      %6u.%02u MB %6u.%02u MB %6u.%02u MB %6u.%02u MB\n", 
-               t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
-        break;
+    free_write_all(1, "                 total         used     all used         free\n",
+                   sizeof("                 total         used     all used         free\n") - 1);
+
+    divisor = 1;
+    width = 8;
+    decimals = 0;
+    prefix = "Mem:       ";
+    suffix = " KB  ";
+    last_suffix = " KB";
+    if (unit_mode == UNIT_MB ||
+        (unit_mode == UNIT_HUMAN && mem_total < 1048576)) {
+        divisor = 1024;
+        width = 6;
+        decimals = unit_mode == UNIT_HUMAN ? 1 : 2;
+        prefix = unit_mode == UNIT_HUMAN ? "Mem:       " : "Mem:      ";
+        suffix = unit_mode == UNIT_HUMAN ? " MB  " : " MB ";
+        last_suffix = " MB";
+    } else if (unit_mode == UNIT_GB || unit_mode == UNIT_HUMAN) {
+        divisor = 1048576;
+        width = 5;
+        decimals = 2;
+        suffix = " GB  ";
+        last_suffix = " GB";
     }
-    case UNIT_GB: {
-        unsigned int t_i = mem_total / 1048576;
-        unsigned int t_d = (mem_total % 1048576) * 100 / 1048576;
-        unsigned int u_i = mem_used / 1048576;
-        unsigned int u_d = (mem_used % 1048576) * 100 / 1048576;
-        unsigned int a_i = mem_all_used / 1048576;
-        unsigned int a_d = (mem_all_used % 1048576) * 100 / 1048576;
-        unsigned int f_i = mem_free / 1048576;
-        unsigned int f_d = (mem_free % 1048576) * 100 / 1048576;
-        printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
-               t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
-        break;
-    }
-    case UNIT_HUMAN: {
-        if (mem_total >= 1048576) {
-            unsigned int t_i = mem_total / 1048576;
-            unsigned int t_d = (mem_total % 1048576) * 100 / 1048576;
-            unsigned int u_i = mem_used / 1048576;
-            unsigned int u_d = (mem_used % 1048576) * 100 / 1048576;
-            unsigned int a_i = mem_all_used / 1048576;
-            unsigned int a_d = (mem_all_used % 1048576) * 100 / 1048576;
-            unsigned int f_i = mem_free / 1048576;
-            unsigned int f_d = (mem_free % 1048576) * 100 / 1048576;
-            printf("Mem:       %5u.%02u GB  %5u.%02u GB  %5u.%02u GB  %5u.%02u GB\n", 
-                   t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
-        } else {
-            unsigned int t_i = mem_total / 1024;
-            unsigned int t_d = (mem_total % 1024) * 10 / 1024;
-            unsigned int u_i = mem_used / 1024;
-            unsigned int u_d = (mem_used % 1024) * 10 / 1024;
-            unsigned int a_i = mem_all_used / 1024;
-            unsigned int a_d = (mem_all_used % 1024) * 10 / 1024;
-            unsigned int f_i = mem_free / 1024;
-            unsigned int f_d = (mem_free % 1024) * 10 / 1024;
-            printf("Mem:       %6u.%u MB  %6u.%u MB  %6u.%u MB  %6u.%u MB\n", 
-                   t_i, t_d, u_i, u_d, a_i, a_d, f_i, f_d);
-        }
-        break;
-    }
-    default:
-        printf("Mem:       %8u KB  %8u KB  %8u KB  %8u KB\n", 
-               mem_total, mem_used, mem_all_used, mem_free);
-        break;
-    }
+    out_end = free_append(out, prefix);
+    out_end = free_append_scaled(out_end, mem_total, divisor, width,
+                                 decimals, suffix);
+    out_end = free_append_scaled(out_end, mem_used, divisor, width,
+                                 decimals, suffix);
+    out_end = free_append_scaled(out_end, mem_all_used, divisor, width,
+                                 decimals, suffix);
+    out_end = free_append_scaled(out_end, mem_free, divisor, width,
+                                 decimals, last_suffix);
+    *out_end++ = '\n';
+    free_write_all(1, out, (size_t)(out_end - out));
     
     return 0;
 }

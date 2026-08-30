@@ -23,12 +23,14 @@ int cu_main(int argc, char **argv) {
 
     if (!applet || !*applet) return 1;
 
-    if (strcmp(applet, "lebu") == 0 || strcmp(applet, "lebu.bin") == 0) {
+    if (strcmp(applet, cu_name_lebu) == 0 ||
+        strcmp(applet, cu_name_lebu_bin) == 0) {
         if (argc < 2) {
             cu_print_help();
             return 1;
         }
-        if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+        if (strcmp(argv[1], cu_option_help) == 0 ||
+            strcmp(argv[1], cu_option_help_short) == 0) {
             cu_print_help();
             return 0;
         }
@@ -39,7 +41,8 @@ int cu_main(int argc, char **argv) {
         return cu_dispatch(argc - 1, argv + 1);
     }
 
-    if (strcmp(applet, "--help") == 0 || strcmp(applet, "-h") == 0) {
+    if (strcmp(applet, cu_option_help) == 0 ||
+        strcmp(applet, cu_option_help_short) == 0) {
         cu_print_help();
         return 0;
     }

@@ -7,6 +7,11 @@ int cu_main(int argc, char **argv);
 int cu_dispatch(int argc, char **argv);
 int cu_dispatch_as(const char *applet, int argc, char **argv);
 
+extern const char cu_name_lebu[];
+extern const char cu_name_lebu_bin[];
+extern const char cu_option_help[];
+extern const char cu_option_help_short[];
+
 void cu_print_commands(void);
 
 #ifdef CONFIG_CMD_ECHO

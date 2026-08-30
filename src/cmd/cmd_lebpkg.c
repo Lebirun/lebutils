@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/mman.h>
 #include <lebirun.h>
 #include <lebirun/syscall.h>
@@ -16,7 +17,6 @@
 #define MAX_URL_LEN        512
 #define MAX_LINE_LEN       256
 #define MAX_REPOS          8
-#define MAX_PACKAGES       64
 #define MAX_CATEGORIES     16
 #define LPKG_MAGIC         "LPKG"
 #define LPKG_VERSION       1
@@ -63,8 +63,39 @@ typedef struct {
     char scope[32];
 } repo_t;
 
-static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz);
+typedef int (*pkg_visitor_t)(const pkg_entry_t *pkg, void *context);
+
+typedef struct {
+    const char *name;
+    pkg_entry_t *entry;
+    int found;
+} pkg_lookup_t;
+
+typedef struct {
+    char name[64];
+    char version[32];
+    char description[128];
+    int matched;
+} pkg_installed_t;
+
+typedef struct {
+    pkg_installed_t *packages;
+    int count;
+} pkg_list_t;
+
+static int visit_all_index_pkgs(pkg_visitor_t visitor, void *context);
+static int lookup_pkg_entry(const char *pkg, pkg_entry_t *out);
 static void ensure_parent_dirs(const char *filepath);
+
+static int visit_lookup_pkg(const pkg_entry_t *entry, void *context) {
+    pkg_lookup_t *lookup;
+
+    lookup = (pkg_lookup_t *)context;
+    if (strcmp(entry->name, lookup->name) != 0) return 0;
+    *lookup->entry = *entry;
+    lookup->found = 1;
+    return 1;
+}
 
 static int confirm_yn(const char *prompt) {
     char c;
@@ -77,84 +108,44 @@ static int confirm_yn(const char *prompt) {
 }
 
 static int lookup_pkg_deps(const char *pkg, char *deps, int deps_size) {
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
+    pkg_entry_t entry;
+    int result;
 
     deps[0] = '\0';
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) return -1;
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) { free(buf); return -1; }
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    for (j = 0; j < npkgs; j++) {
-        if (strcmp(pkgs[j].name, pkg) == 0) {
-            if (pkgs[j].depends[0]) {
-                strncpy(deps, pkgs[j].depends, (size_t)(deps_size - 1));
-                deps[deps_size - 1] = '\0';
-            }
-            free(pkgs);
-            free(buf);
-            return 0;
-        }
+    result = lookup_pkg_entry(pkg, &entry);
+    if (result != 0) return result;
+    if (entry.depends[0]) {
+        strncpy(deps, entry.depends, (size_t)(deps_size - 1));
+        deps[deps_size - 1] = '\0';
     }
-    free(pkgs);
-    free(buf);
-    return -1;
+    return 0;
 }
 
 static int get_installed_version(const char *pkg, char *ver, int ver_size);
 
 static int lookup_pkg_version(const char *pkg, char *ver, int ver_size) {
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
+    pkg_entry_t entry;
+    int result;
 
     ver[0] = '\0';
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) return -1;
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) { free(buf); return -1; }
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    for (j = 0; j < npkgs; j++) {
-        if (strcmp(pkgs[j].name, pkg) == 0) {
-            strncpy(ver, pkgs[j].version, (size_t)(ver_size - 1));
-            ver[ver_size - 1] = '\0';
-            free(pkgs);
-            free(buf);
-            return 0;
-        }
-    }
-    free(pkgs);
-    free(buf);
-    return -1;
+    result = lookup_pkg_entry(pkg, &entry);
+    if (result != 0) return result;
+    strncpy(ver, entry.version, (size_t)(ver_size - 1));
+    ver[ver_size - 1] = '\0';
+    return 0;
 }
 
 static int lookup_pkg_entry(const char *pkg, pkg_entry_t *out) {
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
+    pkg_lookup_t lookup;
+    int result;
 
     memset(out, 0, sizeof(*out));
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) return -1;
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) { free(buf); return -1; }
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    for (j = 0; j < npkgs; j++) {
-        if (strcmp(pkgs[j].name, pkg) == 0) {
-            *out = pkgs[j];
-            free(pkgs);
-            free(buf);
-            return 0;
-        }
-    }
-    free(pkgs);
-    free(buf);
-    return -1;
+    lookup.name = pkg;
+    lookup.entry = out;
+    lookup.found = 0;
+    result = visit_all_index_pkgs(visit_lookup_pkg, &lookup);
+    if (result < 0) return -2;
+    return lookup.found ? 0 : -1;
 }
 
 static void print_usage(void) {
@@ -555,9 +546,11 @@ static const char *parse_pkg_object(const char *p, pkg_entry_t *pkg) {
     return p;
 }
 
-static int parse_pkg_index(const char *json, pkg_entry_t *pkgs, int max) {
+static int visit_pkg_index(const char *json, pkg_visitor_t visitor,
+                           void *context) {
     const char *p;
-    int count;
+    pkg_entry_t pkg;
+    int result;
     char key[64];
 
     p = skip_ws(json);
@@ -568,31 +561,32 @@ static int parse_pkg_index(const char *json, pkg_entry_t *pkgs, int max) {
             if (*p == ',') { p++; p = skip_ws(p); }
             if (*p == '}') break;
             p = parse_json_string(p, key, sizeof(key));
-            if (!p) return 0;
+            if (!p) return -1;
             p = skip_ws(p);
-            if (*p != ':') return 0;
+            if (*p != ':') return -1;
             p++;
             p = skip_ws(p);
             if (strcmp(key, "packages") == 0 && *p == '[')
                 break;
             p = skip_json_value(p);
-            if (!p) return 0;
+            if (!p) return -1;
             p = skip_ws(p);
         }
     }
-    if (*p != '[') return 0;
+    if (*p != '[') return -1;
     p++;
     p = skip_ws(p);
-    count = 0;
-    while (*p && *p != ']' && count < max) {
+    while (*p && *p != ']') {
         if (*p == ',') { p++; p = skip_ws(p); }
         if (*p == ']') break;
-        p = parse_pkg_object(p, &pkgs[count]);
-        if (!p) return count;
-        count++;
+        p = parse_pkg_object(p, &pkg);
+        if (!p) return -1;
+        result = visitor(&pkg, context);
+        if (result != 0) return result;
         p = skip_ws(p);
     }
-    return count;
+    if (*p != ']') return -1;
+    return 0;
 }
 
 static int load_repos(repo_t *repos, int max) {
@@ -659,17 +653,37 @@ static int load_repos(repo_t *repos, int max) {
     return count;
 }
 
+static int visit_list_pkg(const pkg_entry_t *entry, void *context) {
+    pkg_list_t *list;
+    int i;
+
+    list = (pkg_list_t *)context;
+    for (i = 0; i < list->count; i++) {
+        if (list->packages[i].matched ||
+            strcmp(list->packages[i].name, entry->name) != 0) continue;
+        strncpy(list->packages[i].description, entry->description,
+                sizeof(list->packages[i].description) - 1);
+        list->packages[i].description[
+            sizeof(list->packages[i].description) - 1] = '\0';
+        list->packages[i].matched = 1;
+        break;
+    }
+    return 0;
+}
+
 static int cmd_lebpkg_list(void) {
     int fd;
     char name[64];
     unsigned int type;
     unsigned int idx;
     int count;
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
-    char inst_ver[32];
+    int capacity;
+    int new_capacity;
+    int result;
+    int i;
+    pkg_installed_t *packages;
+    pkg_installed_t *resized;
+    pkg_list_t list;
 
     fd = vfs_open(LEBPKG_DB_DIR, 0);
     if (fd < 0) {
@@ -677,42 +691,73 @@ static int cmd_lebpkg_list(void) {
         return 0;
     }
 
-    buf = malloc(MAX_RESP_SIZE);
-    pkgs = NULL;
-    npkgs = 0;
-    if (buf) {
-        pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-        if (pkgs)
-            npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-        free(buf);
-    }
-
     count = 0;
+    capacity = 0;
+    packages = NULL;
     idx = 0;
     for (;;) {
         if (vfs_readdir(fd, name, &type, idx) < 0) break;
         idx++;
-        if (type != 1) continue;
-        inst_ver[0] = '\0';
-        get_installed_version(name, inst_ver, sizeof(inst_ver));
-        for (j = 0; j < npkgs; j++) {
-            if (strcmp(pkgs[j].name, name) == 0) break;
+        if (type != 0 && type != 1) continue;
+        if (count == capacity) {
+            if (capacity > INT_MAX / 2) {
+                free(packages);
+                vfs_close_fd(fd);
+                fprintf(stderr, "lebpkg: too many installed packages\n");
+                return 1;
+            }
+            new_capacity = capacity ? capacity * 2 : 4;
+            if ((size_t)new_capacity >
+                (size_t)-1 / sizeof(*packages)) {
+                free(packages);
+                vfs_close_fd(fd);
+                fprintf(stderr, "lebpkg: too many installed packages\n");
+                return 1;
+            }
+            resized = realloc(packages,
+                              (size_t)new_capacity * sizeof(*packages));
+            if (!resized) {
+                free(packages);
+                vfs_close_fd(fd);
+                fprintf(stderr, "lebpkg: out of memory\n");
+                return 1;
+            }
+            packages = resized;
+            capacity = new_capacity;
         }
-        if (inst_ver[0])
-            printf("%s/%s [installed]", name, inst_ver);
-        else
-            printf("%s [installed]", name);
-        if (j < npkgs && pkgs[j].description[0])
-            printf("\n  %s\n", pkgs[j].description);
-        else
-            putchar('\n');
+        memset(&packages[count], 0, sizeof(packages[count]));
+        strncpy(packages[count].name, name,
+                sizeof(packages[count].name) - 1);
+        get_installed_version(name, packages[count].version,
+                              sizeof(packages[count].version));
         count++;
     }
     vfs_close_fd(fd);
-    if (pkgs) free(pkgs);
-    if (count == 0)
+    if (count == 0) {
+        free(packages);
         printf("No packages installed.\n");
-    return 0;
+        return 0;
+    }
+
+    list.packages = packages;
+    list.count = count;
+    result = visit_all_index_pkgs(visit_list_pkg, &list);
+    if (result < 0)
+        fprintf(stderr, "lebpkg: cannot read package index\n");
+
+    for (i = 0; i < count; i++) {
+        if (packages[i].version[0])
+            printf("%s/%s [installed]", packages[i].name,
+                   packages[i].version);
+        else
+            printf("%s [installed]", packages[i].name);
+        if (packages[i].description[0])
+            printf("\n  %s\n", packages[i].description);
+        else
+            putchar('\n');
+    }
+    free(packages);
+    return result < 0 ? 1 : 0;
 }
 
 static int parse_manifest_categories(const char *json, char cats[][64], int max) {
@@ -862,78 +907,114 @@ static int cmd_lebpkg_update(void) {
     return 0;
 }
 
-static int load_all_index_pkgs(pkg_entry_t *pkgs, int max, char *buf, unsigned int bufsz) {
+static int visit_index_file(const char *path, pkg_visitor_t visitor,
+                            void *context) {
+    uint64_t file_size;
+    uint64_t file_type;
+    uint64_t total;
+    char *buffer;
+    int fd;
+    int read_size;
+    int result;
+
+    fd = vfs_open(path, 0);
+    if (fd < 0) return -1;
+    if (vfs_stat(fd, &file_size, &file_type) < 0 || file_size == 0 ||
+        file_size >= (uint64_t)(size_t)-1) {
+        vfs_close_fd(fd);
+        return -1;
+    }
+    file_type &= 0x07;
+    if (file_type != 0 && file_type != 1) {
+        vfs_close_fd(fd);
+        return 0;
+    }
+    buffer = malloc((size_t)file_size + 1);
+    if (!buffer) {
+        vfs_close_fd(fd);
+        return -1;
+    }
+    total = 0;
+    while (total < file_size) {
+        read_size = vfs_read_fd(fd, buffer + total, file_size - total);
+        if (read_size <= 0) break;
+        total += (uint64_t)read_size;
+    }
+    vfs_close_fd(fd);
+    if (total != file_size) {
+        free(buffer);
+        return -1;
+    }
+    buffer[total] = '\0';
+    result = visit_pkg_index(buffer, visitor, context);
+    free(buffer);
+    return result;
+}
+
+static int visit_all_index_pkgs(pkg_visitor_t visitor, void *context) {
     int dirfd;
     char name[64];
     unsigned int type;
     unsigned int idx;
-    int total;
     char path[MAX_URL_LEN];
     int nlen;
-    int n;
+    int result;
 
     dirfd = vfs_open(LEBPKG_IDX_DIR, 0);
     if (dirfd < 0) return 0;
 
-    total = 0;
     idx = 0;
-    while (total < max) {
+    result = 0;
+    for (;;) {
         if (vfs_readdir(dirfd, name, &type, idx) < 0)
             break;
         idx++;
-        if (type != 1) continue;
+        if (type != 0 && type != 1) continue;
         nlen = strlen(name);
         if (nlen < 5 || strcmp(name + nlen - 5, ".json") != 0)
             continue;
 
         snprintf(path, sizeof(path), "%s/%s", LEBPKG_IDX_DIR, name);
-        if (read_file_contents(path, buf, bufsz) <= 0)
-            continue;
-        n = parse_pkg_index(buf, pkgs + total, max - total);
-        total += n;
+        result = visit_index_file(path, visitor, context);
+        if (result != 0) break;
     }
     vfs_close_fd(dirfd);
 
-    return total;
+    return result;
+}
+
+typedef struct {
+    const char *term;
+    int found;
+} pkg_search_t;
+
+static int visit_search_pkg(const pkg_entry_t *pkg, void *context) {
+    pkg_search_t *search;
+
+    search = (pkg_search_t *)context;
+    if (!strstr(pkg->name, search->term) &&
+        !strstr(pkg->description, search->term)) return 0;
+    printf("%s/%s\n  %s\n", pkg->name, pkg->version, pkg->description);
+    search->found++;
+    return 0;
 }
 
 static int cmd_lebpkg_search(const char *term) {
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
-    int found;
+    pkg_search_t search;
+    int result;
 
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) {
-        fprintf(stderr, "lebpkg: out of memory\n");
+    search.term = term;
+    search.found = 0;
+    result = visit_all_index_pkgs(visit_search_pkg, &search);
+    if (result < 0) {
+        fprintf(stderr, "lebpkg: cannot read package index\n");
         return 1;
     }
 
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) {
-        fprintf(stderr, "lebpkg: out of memory\n");
-        free(buf);
-        return 1;
-    }
-
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    found = 0;
-    for (j = 0; j < npkgs; j++) {
-        if (strstr(pkgs[j].name, term) ||
-            strstr(pkgs[j].description, term)) {
-            printf("%s/%s\n  %s\n",
-                   pkgs[j].name, pkgs[j].version, pkgs[j].description);
-            found++;
-        }
-    }
-
-    if (found == 0) {
+    if (search.found == 0) {
         printf("No packages matching '%s' found.\n", term);
         printf("Try running 'lebpkg update' first.\n");
     }
-    free(pkgs);
-    free(buf);
     return 0;
 }
 
@@ -967,10 +1048,16 @@ static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos) 
     uint64_t got;
     int status;
     int ret;
+    int lookup_result;
     pkg_entry_t meta;
     uint64_t map_len;
 
-    if (lookup_pkg_entry(pkg, &meta) < 0) {
+    lookup_result = lookup_pkg_entry(pkg, &meta);
+    if (lookup_result == -2) {
+        fprintf(stderr, "lebpkg: cannot read package index\n");
+        return -1;
+    }
+    if (lookup_result < 0) {
         memset(&meta, 0, sizeof(meta));
         strncpy(meta.name, pkg, sizeof(meta.name) - 1);
         meta.name[sizeof(meta.name) - 1] = '\0';
@@ -1008,26 +1095,12 @@ static int download_and_install_pkg(const char *pkg, repo_t *repos, int nrepos) 
 }
 
 static int pkg_exists_in_index(const char *pkg) {
-    char *buf;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
+    pkg_entry_t entry;
+    int result;
 
-    buf = malloc(MAX_RESP_SIZE);
-    if (!buf) return 0;
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) { free(buf); return 0; }
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    for (j = 0; j < npkgs; j++) {
-        if (strcmp(pkgs[j].name, pkg) == 0) {
-            free(pkgs);
-            free(buf);
-            return 1;
-        }
-    }
-    free(pkgs);
-    free(buf);
-    return 0;
+    result = lookup_pkg_entry(pkg, &entry);
+    if (result == -2) return -1;
+    return result == 0;
 }
 
 static int cmd_lebpkg_install(const char *pkg) {
@@ -1039,6 +1112,8 @@ static int cmd_lebpkg_install(const char *pkg) {
     char *p;
     char *tok;
     int i;
+    int exists;
+    int dep_result;
 
     if (is_pkg_installed(pkg)) {
         printf("Package '%s' is already installed.\n", pkg);
@@ -1051,14 +1126,24 @@ static int cmd_lebpkg_install(const char *pkg) {
         return 1;
     }
 
-    if (!pkg_exists_in_index(pkg)) {
+    exists = pkg_exists_in_index(pkg);
+    if (exists < 0) {
+        fprintf(stderr, "lebpkg: cannot read package index\n");
+        return 1;
+    }
+    if (!exists) {
         fprintf(stderr, "lebpkg: package '%s' not found in any repository\n", pkg);
         fprintf(stderr, "Try running 'lebpkg update' first.\n");
         return 1;
     }
 
     ndeps = 0;
-    if (lookup_pkg_deps(pkg, deps, sizeof(deps)) == 0 && deps[0]) {
+    dep_result = lookup_pkg_deps(pkg, deps, sizeof(deps));
+    if (dep_result == -2) {
+        fprintf(stderr, "lebpkg: cannot read package index\n");
+        return 1;
+    }
+    if (dep_result == 0 && deps[0]) {
         p = deps;
         while (*p && ndeps < 8) {
             while (*p == ' ' || *p == ',') p++;
@@ -1266,22 +1351,14 @@ static int cmd_lebpkg_info(const char *pkg) {
     char *buf;
     int rd;
     int installed;
-    pkg_entry_t *pkgs;
-    int npkgs;
-    int j;
+    int lookup_result;
+    pkg_entry_t entry;
 
     installed = 0;
     snprintf(db_path, sizeof(db_path), "%s/%s", LEBPKG_DB_DIR, pkg);
 
-    buf = malloc(MAX_RESP_SIZE > 4096 ? MAX_RESP_SIZE : 4096);
+    buf = malloc(4096);
     if (!buf) {
-        fprintf(stderr, "lebpkg: out of memory\n");
-        return 1;
-    }
-
-    pkgs = malloc(MAX_PACKAGES * sizeof(pkg_entry_t));
-    if (!pkgs) {
-        free(buf);
         fprintf(stderr, "lebpkg: out of memory\n");
         return 1;
     }
@@ -1289,30 +1366,33 @@ static int cmd_lebpkg_info(const char *pkg) {
     rd = read_file_contents(db_path, buf, 4096);
     if (rd > 0) installed = 1;
 
-    npkgs = load_all_index_pkgs(pkgs, MAX_PACKAGES, buf, MAX_RESP_SIZE);
-    for (j = 0; j < npkgs; j++) {
-        if (strcmp(pkgs[j].name, pkg) == 0) {
-            printf("Name:        %s\n", pkgs[j].name);
-            printf("Version:     %s\n", pkgs[j].version);
-            printf("Description: %s\n", pkgs[j].description);
-            if (pkgs[j].author[0])
-                printf("Author:      %s\n", pkgs[j].author);
-            if (pkgs[j].license[0])
-                printf("License:     %s\n", pkgs[j].license);
-            if (pkgs[j].depends[0])
-                printf("Depends:     %s\n", pkgs[j].depends);
-            if (pkgs[j].arch[0])
-                printf("Arch:        %s\n", pkgs[j].arch);
-            printf("Installed:   %s\n", installed ? "yes" : "no");
-            if (installed) {
-                rd = read_file_contents(db_path, buf, 4096);
-                if (rd > 0)
-                    printf("Files:\n%s\n", buf);
-            }
-            free(pkgs);
-            free(buf);
-            return 0;
+    lookup_result = lookup_pkg_entry(pkg, &entry);
+    if (lookup_result == 0) {
+        printf("Name:        %s\n", entry.name);
+        printf("Version:     %s\n", entry.version);
+        printf("Description: %s\n", entry.description);
+        if (entry.author[0])
+            printf("Author:      %s\n", entry.author);
+        if (entry.license[0])
+            printf("License:     %s\n", entry.license);
+        if (entry.depends[0])
+            printf("Depends:     %s\n", entry.depends);
+        if (entry.arch[0])
+            printf("Arch:        %s\n", entry.arch);
+        printf("Installed:   %s\n", installed ? "yes" : "no");
+        if (installed) {
+            rd = read_file_contents(db_path, buf, 4096);
+            if (rd > 0)
+                printf("Files:\n%s\n", buf);
         }
+        free(buf);
+        return 0;
+    }
+
+    if (lookup_result == -2) {
+        fprintf(stderr, "lebpkg: cannot read package index\n");
+        free(buf);
+        return 1;
     }
 
     if (installed) {
@@ -1320,13 +1400,11 @@ static int cmd_lebpkg_info(const char *pkg) {
         rd = read_file_contents(db_path, buf, 4096);
         if (rd > 0)
             printf("Files:\n%s\n", buf);
-        free(pkgs);
         free(buf);
         return 0;
     }
 
     fprintf(stderr, "lebpkg: package '%s' not found\n", pkg);
-    free(pkgs);
     free(buf);
     return 1;
 }

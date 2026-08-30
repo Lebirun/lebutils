@@ -75,7 +75,8 @@ int cmd_cat(int argc, char **argv) {
     file_count = 0;
 
     for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+        if (strcmp(argv[i], cu_option_help) == 0 ||
+            strcmp(argv[i], cu_option_help_short) == 0) {
             puts("Usage: cat [-n] FILE...");
             puts("Concatenate files and print to standard output.");
             puts("");

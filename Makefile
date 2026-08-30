@@ -526,7 +526,7 @@ BIN_TARGETS += ping
 endif
 
 BINDIR = bin
-PROGRAMS := $(addprefix $(BINDIR)/,$(addsuffix .bin,$(BIN_TARGETS)))
+PROGRAMS := $(addprefix $(BINDIR)/,$(addsuffix .bin,$(filter-out free,$(BIN_TARGETS))))
 
 IPV67_TARGETS :=
 ifeq ($(COMMAND_IPV67CLI),y)
@@ -613,7 +613,6 @@ stage: all
 	done
 	@[ -f $(BINDIR)/sudo.bin ] && { rm -f $(SYSROOT_BIN)/sudo; cp $(BINDIR)/sudo.bin $(SYSROOT_BIN)/sudo; $(STRIP) -s $(SYSROOT_BIN)/sudo; chmod 4755 $(SYSROOT_BIN)/sudo; } || true
 	@[ -f $(BINDIR)/echo.bin ] && { rm -f $(SYSROOT_BIN)/echo; cp $(BINDIR)/echo.bin $(SYSROOT_BIN)/echo; $(STRIP) -s $(SYSROOT_BIN)/echo; } || true
-	@[ -f $(BINDIR)/free.bin ] && { rm -f $(SYSROOT_BIN)/free; cp $(BINDIR)/free.bin $(SYSROOT_BIN)/free; $(STRIP) -s $(SYSROOT_BIN)/free; } || true
 	@for app in $(SBIN_APPS); do \
 		ln -sf ../bin/lebu $(SYSROOT_SBIN)/$$app; \
 	done
