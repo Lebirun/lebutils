@@ -190,6 +190,12 @@ endif
 ifeq ($(COMMAND_PING),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PING
 endif
+ifeq ($(COMMAND_LN),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LN
+endif
+ifeq ($(COMMAND_FIND),y)
+CONFIG_DEFINES += -DCONFIG_CMD_FIND
+endif
 ifeq ($(COMMAND_IPV67CLI),y)
 CONFIG_DEFINES += -DCONFIG_CMD_IPV67CLI
 endif
@@ -355,6 +361,12 @@ LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_sudo.c
 endif
 ifeq ($(COMMAND_PING),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ping.c
+endif
+ifeq ($(COMMAND_LN),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ln.c
+endif
+ifeq ($(COMMAND_FIND),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_find.c
 endif
 
 IPV67_CRYPTO_SRC = $(SRCDIR)/cmd/ipv67/ipv67_crypto.c
@@ -523,6 +535,12 @@ BIN_TARGETS += sudo
 endif
 ifeq ($(COMMAND_PING),y)
 BIN_TARGETS += ping
+endif
+ifeq ($(COMMAND_LN),y)
+BIN_TARGETS += ln
+endif
+ifeq ($(COMMAND_FIND),y)
+BIN_TARGETS += find
 endif
 
 BINDIR = bin

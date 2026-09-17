@@ -164,6 +164,12 @@ int cmd_sudo(int argc, char **argv);
 #ifdef CONFIG_CMD_PING
 int cmd_ping(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_LN
+int cmd_ln(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_FIND
+int cmd_find(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

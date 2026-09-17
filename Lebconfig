@@ -19,6 +19,8 @@ subcategory "Software" {
         item type=bool name="touch" default=enable id=touch alias="COMMAND_TOUCH" help="Enable the 'touch' command - creates empty files or updates file timestamps"
         item type=bool name="cp" default=enable id=cp alias="COMMAND_CP" help="Enable the 'cp' command - copies files"
         item type=bool name="mv" default=enable id=mv alias="COMMAND_MV" help="Enable the 'mv' command - moves or renames files and directories"
+        item type=bool name="ln" default=enable id=ln alias="COMMAND_LN" help="Enable the 'ln' command - creates hard or symbolic links"
+        item type=bool name="find" default=enable id=find alias="COMMAND_FIND" help="Enable the 'find' command - walks directories and prints matching entries"
         item type=bool name="head" default=enable id=head alias="COMMAND_HEAD" help="Enable the 'head' command - displays the first lines of a file"
         item type=bool name="tail" default=enable id=tail alias="COMMAND_TAIL" help="Enable the 'tail' command - displays the last lines of a file"
         item type=bool name="grep" default=enable id=grep alias="COMMAND_GREP" help="Enable the 'grep' command - searches files for matching patterns"

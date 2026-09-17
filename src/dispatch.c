@@ -180,6 +180,12 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_PING
     {"ping", cmd_ping},
 #endif
+#ifdef CONFIG_CMD_LN
+    {"ln", cmd_ln},
+#endif
+#ifdef CONFIG_CMD_FIND
+    {"find", cmd_find},
+#endif
     {NULL, NULL}
 };
 
