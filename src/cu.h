@@ -14,6 +14,22 @@ extern const char cu_option_help_short[];
 
 void cu_print_commands(void);
 
+typedef struct {
+    char name[16];
+    unsigned char mac[6];
+    unsigned char _pad1[2];
+    unsigned long long ipv4;
+    unsigned long long netmask;
+    unsigned long long gateway;
+    unsigned long long dns;
+    unsigned long long mtu;
+    unsigned char link_up;
+    unsigned char dhcp_configured;
+    unsigned char _pad2[2];
+} __attribute__((packed)) netinfo_user_t;
+
+int net_ready(void);
+
 #ifdef CONFIG_CMD_ECHO
 int cmd_echo(int argc, char **argv);
 #endif

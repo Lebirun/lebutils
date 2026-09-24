@@ -1,5 +1,6 @@
 #include <string.h>
 #include <unistd.h>
+#include <lebirun/syscall.h>
 #include "cu.h"
 
 static int cu_is_sep(char c)
@@ -138,4 +139,13 @@ int cu_path_abs(const char *in, char *out, unsigned int outsz)
     if (length >= outsz) return cu_path_abs_slow(in, out, outsz);
     for (i = 0; i <= length; i++) out[i] = in[i];
     return 0;
+}
+
+int net_ready(void) {
+    netinfo_user_t info;
+
+    memset(&info, 0, sizeof(info));
+    if ((int)leb_syscall1(LEB_SYSCALL_NET_GETINFO, (long)&info) < 0)
+        return 0;
+    return info.link_up && info.ipv4 != 0;
 }

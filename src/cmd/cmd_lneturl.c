@@ -49,8 +49,7 @@ static void print_usage(void) {
     fprintf(stderr, "  --help            Show this help\n");
 }
 
-static int b64_encode(const char *in, unsigned int in_len, char *out, unsigned int out_size) {
-    static const char tbl[] =
+static int b64_encode(const char *in, unsigned int in_len, char *out, unsigned int out_size) {    static const char tbl[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     unsigned int i;
     unsigned int o;

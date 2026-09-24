@@ -4,20 +4,6 @@
 #include <lebirun/syscall.h>
 #include "cu.h"
 
-typedef struct {
-    char name[16];
-    unsigned char mac[6];
-    unsigned char _pad1[2];
-    unsigned long long ipv4;
-    unsigned long long netmask;
-    unsigned long long gateway;
-    unsigned long long dns;
-    unsigned long long mtu;
-    unsigned char link_up;
-    unsigned char dhcp_configured;
-    unsigned char _pad2[2];
-} __attribute__((packed)) netinfo_user_t;
-
 static void print_usage(void) {
     fprintf(stderr, "Usage: lebnet <command> [options]\n");
     fprintf(stderr, "Commands:\n");
