@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 #include <unistd.h>
 #include <lebirun.h>
 #include "cu.h"
@@ -308,6 +309,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     uint32_t n;
     uint8_t *zbuf;
     uint8_t uuid[16];
+    uint32_t now;
 
     fd = -1;
     block_buf = NULL;
@@ -401,6 +403,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     if (zbuf) memset(zbuf, 0, ZERO_BATCH_BLOCKS * BLOCK_SIZE);
 
     lf_gen_uuid(uuid);
+    now = (uint32_t)time(NULL);
 
     memset(sb, 0, sizeof(*sb));
     sb->s_inodes_count = total_inodes;
@@ -415,14 +418,14 @@ int cmd_lformat_ext4(int argc, char **argv) {
     sb->s_clusters_per_group = blocks_per_group;
     sb->s_inodes_per_group = inodes_per_group;
     sb->s_mtime = 0;
-    sb->s_wtime = 0;
+    sb->s_wtime = now;
     sb->s_mnt_count = 0;
     sb->s_max_mnt_count = 20;
     sb->s_magic = EXT4_SUPER_MAGIC;
     sb->s_state = 1;
     sb->s_errors = 1;
     sb->s_minor_rev_level = 0;
-    sb->s_lastcheck = 0;
+    sb->s_lastcheck = now;
     sb->s_checkinterval = 0;
     sb->s_creator_os = 5;
     sb->s_rev_level = 1;
@@ -441,6 +444,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     sb->s_desc_size = 32;
     sb->s_min_extra_isize = 28;
     sb->s_want_extra_isize = 28;
+    sb->s_mkfs_time = now;
 
     memset(block_buf, 0, BLOCK_SIZE);
     memcpy(block_buf + EXT4_SB_OFFSET, sb, sizeof(*sb));
@@ -537,6 +541,10 @@ int cmd_lformat_ext4(int argc, char **argv) {
     memset(inode, 0, sizeof(*inode));
     inode->i_mode = EXT4_S_IFDIR | 0755;
     inode->i_uid = 0;
+    inode->i_atime = now;
+    inode->i_ctime = now;
+    inode->i_mtime = now;
+    inode->i_crtime = now;
     inode->i_size_lo = BLOCK_SIZE;
     inode->i_links_count = 2;
     inode->i_blocks_lo = BLOCK_SIZE / 512;
