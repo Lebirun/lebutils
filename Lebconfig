@@ -56,8 +56,10 @@ subcategory "Software" {
     }
     subcategory "Networking" {
         item type=bool name="lneturl" default=enable id=lneturl alias="COMMAND_LNETURL" help="Enable the 'lneturl' command"
-        item type=bool name="lebnet" default=enable id=lebnet alias="COMMAND_LEBNET" help="Enable the 'lebnet' command - network management tool"
+        item type=bool name="dhcp" default=enable id=dhcp alias="COMMAND_DHCP" help="Enable the 'dhcp' command - obtain an IPv4 address via DHCP"
+        item type=bool name="dns" default=enable id=dns alias="COMMAND_DNS" help="Enable the 'dns' command - shows and configures DNS server addresses"
         item type=bool name="ping" default=enable id=ping alias="COMMAND_PING" help="Enable the 'ping' command - sends ICMP echo requests to test network connectivity"
+        item type=bool name="ip" default=enable id=ip alias="COMMAND_IP" help="Enable the 'ip' command - shows and configures network interfaces, addresses, routes and neighbours"
     }
     subcategory "Debug" {
         item type=bool name="syscall" default=disable id=syscall alias="COMMAND_SYSCALL" help="Enable the 'syscall' command - debug tool for testing kernel syscalls"

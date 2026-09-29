@@ -26,6 +26,8 @@ typedef struct {
     unsigned char link_up;
     unsigned char dhcp_configured;
     unsigned char _pad2[2];
+    unsigned char ipv6[16];
+    unsigned char ipv6_prefix;
 } __attribute__((packed)) netinfo_user_t;
 
 int net_ready(void);
@@ -69,8 +71,11 @@ int cmd_date(int argc, char **argv);
 #ifdef CONFIG_CMD_LNETURL
 int cmd_lneturl(int argc, char **argv);
 #endif
-#ifdef CONFIG_CMD_LEBNET
-int cmd_lebnet(int argc, char **argv);
+#ifdef CONFIG_CMD_DHCP
+int cmd_dhcp(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_DNS
+int cmd_dns(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_LEBPKG
 int cmd_lebpkg(int argc, char **argv);
@@ -185,6 +190,9 @@ int cmd_ln(int argc, char **argv);
 #endif
 #ifdef CONFIG_CMD_FIND
 int cmd_find(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_IP
+int cmd_ip(int argc, char **argv);
 #endif
 
 const char *cu_basename(const char *path);

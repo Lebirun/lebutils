@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount lebnet lebpkg ldiskutil lformat.ext4 useradd userdel insmod rmmod modinfo modprobe ping dmesg
+SBIN_APPS = mount umount dhcp dns lebpkg ldiskutil lformat.ext4 useradd userdel insmod rmmod modinfo modprobe ping dmesg ip
 
 SRCDIR = src
 
@@ -79,8 +79,11 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LNETURL
 endif
-ifeq ($(COMMAND_LEBNET),y)
-CONFIG_DEFINES += -DCONFIG_CMD_LEBNET
+ifeq ($(COMMAND_DHCP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DHCP
+endif
+ifeq ($(COMMAND_DNS),y)
+CONFIG_DEFINES += -DCONFIG_CMD_DNS
 endif
 ifeq ($(COMMAND_LEBPKG),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LEBPKG
@@ -196,6 +199,9 @@ endif
 ifeq ($(COMMAND_FIND),y)
 CONFIG_DEFINES += -DCONFIG_CMD_FIND
 endif
+ifeq ($(COMMAND_IP),y)
+CONFIG_DEFINES += -DCONFIG_CMD_IP
+endif
 ifeq ($(COMMAND_IPV67CLI),y)
 CONFIG_DEFINES += -DCONFIG_CMD_IPV67CLI
 endif
@@ -251,8 +257,11 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lneturl.c
 endif
-ifeq ($(COMMAND_LEBNET),y)
-LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebnet.c
+ifeq ($(COMMAND_DHCP),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_dhcp.c
+endif
+ifeq ($(COMMAND_DNS),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_dns.c
 endif
 ifeq ($(COMMAND_LEBPKG),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lebpkg.c
@@ -368,6 +377,9 @@ endif
 ifeq ($(COMMAND_FIND),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_find.c
 endif
+ifeq ($(COMMAND_IP),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ip.c
+endif
 
 IPV67_CRYPTO_SRC = $(SRCDIR)/cmd/ipv67/ipv67_crypto.c
 IPV67_CRYPTO_OBJ = build/cmd/ipv67/ipv67_crypto.o
@@ -425,8 +437,11 @@ endif
 ifeq ($(COMMAND_LNETURL),y)
 BIN_TARGETS += lneturl
 endif
-ifeq ($(COMMAND_LEBNET),y)
-BIN_TARGETS += lebnet
+ifeq ($(COMMAND_DHCP),y)
+BIN_TARGETS += dhcp
+endif
+ifeq ($(COMMAND_DNS),y)
+BIN_TARGETS += dns
 endif
 ifeq ($(COMMAND_LEBPKG),y)
 BIN_TARGETS += lebpkg
@@ -541,6 +556,9 @@ BIN_TARGETS += ln
 endif
 ifeq ($(COMMAND_FIND),y)
 BIN_TARGETS += find
+endif
+ifeq ($(COMMAND_IP),y)
+BIN_TARGETS += ip
 endif
 
 BINDIR = bin

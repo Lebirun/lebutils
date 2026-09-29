@@ -69,8 +69,11 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LNETURL
     {"lneturl", cmd_lneturl},
 #endif
-#ifdef CONFIG_CMD_LEBNET
-    {"lebnet", cmd_lebnet},
+#ifdef CONFIG_CMD_DHCP
+    {"dhcp", cmd_dhcp},
+#endif
+#ifdef CONFIG_CMD_DNS
+    {"dns", cmd_dns},
 #endif
 #ifdef CONFIG_CMD_LEBPKG
     {"lebpkg", cmd_lebpkg},
@@ -185,6 +188,9 @@ static const struct cu_cmd cu_cmds[] = {
 #endif
 #ifdef CONFIG_CMD_FIND
     {"find", cmd_find},
+#endif
+#ifdef CONFIG_CMD_IP
+    {"ip", cmd_ip},
 #endif
     {NULL, NULL}
 };

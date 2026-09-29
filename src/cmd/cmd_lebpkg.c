@@ -168,7 +168,7 @@ static int http_get(const char *url, uint8_t *buf, uint64_t bufsz,
     uint64_t hdr_len;
 
     if (!net_ready()) {
-        fprintf(stderr, "lebpkg: network not configured (run lebnet dhcp)\n");
+        fprintf(stderr, "lebpkg: network not configured (run dhcp)\n");
         return -1;
     }
     hdr_len = 0;
@@ -190,7 +190,7 @@ static int http_get_alloc(const char *url, uint8_t **out_buf, uint64_t *out_size
     uint64_t buf_addr;
 
     if (!net_ready()) {
-        fprintf(stderr, "lebpkg: network not configured (run lebnet dhcp)\n");
+        fprintf(stderr, "lebpkg: network not configured (run dhcp)\n");
         return -1;
     }
     buf_addr = 0;
