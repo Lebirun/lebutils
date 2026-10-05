@@ -75,12 +75,12 @@ static void print_row(const char *device, const char *mountpoint, int unit_mode,
     switch (unit_mode) {
     case UNIT_MB:
         s_i = size_kb / 1024ULL;
-        s_d = (size_kb % 1024ULL) * 10ULL / 1024ULL;
+        s_d = (size_kb % 1024ULL) * 100ULL / 1024ULL;
         u_i = used_kb / 1024ULL;
-        u_d = (used_kb % 1024ULL) * 10ULL / 1024ULL;
+        u_d = (used_kb % 1024ULL) * 100ULL / 1024ULL;
         a_i = avail_kb / 1024ULL;
-        a_d = (avail_kb % 1024ULL) * 10ULL / 1024ULL;
-        printf("%-15s %6llu.%llu MB %6llu.%llu MB %6llu.%llu MB %5llu%% %s\n",
+        a_d = (avail_kb % 1024ULL) * 100ULL / 1024ULL;
+        printf("%-15s %5llu.%02llu MB %5llu.%02llu MB %5llu.%02llu MB %4llu%%  %s\n",
                device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
         break;
     case UNIT_GB:
@@ -90,18 +90,18 @@ static void print_row(const char *device, const char *mountpoint, int unit_mode,
         u_d = (used_kb % 1048576ULL) * 100ULL / 1048576ULL;
         a_i = avail_kb / 1048576ULL;
         a_d = (avail_kb % 1048576ULL) * 100ULL / 1048576ULL;
-        printf("%-15s %5llu.%02llu GB %5llu.%02llu GB %5llu.%02llu GB %5llu%% %s\n",
+        printf("%-15s %5llu.%02llu GB %5llu.%02llu GB %5llu.%02llu GB %5llu%%  %s\n",
                device, s_i, s_d, u_i, u_d, a_i, a_d, use_pct, mountpoint);
         break;
     case UNIT_HUMAN:
         fmt_human(s_buf, sizeof(s_buf), size_kb);
         fmt_human(u_buf, sizeof(u_buf), used_kb);
         fmt_human(a_buf, sizeof(a_buf), avail_kb);
-        printf("%-15s %10s %10s %10s %5llu%% %s\n",
+        printf("%-15s %10s %10s %10s %5llu%%  %s\n",
                device, s_buf, u_buf, a_buf, use_pct, mountpoint);
         break;
     default:
-        printf("%-15s %10llu %10llu %10llu %5llu%% %s\n",
+        printf("%-15s %10llu %10llu %10llu %5llu%%  %s\n",
                device, size_kb, used_kb, avail_kb, use_pct, mountpoint);
         break;
     }
@@ -184,13 +184,19 @@ int cmd_df(int argc, char **argv)
     }
 
     if (!path_arg) {
+        int r;
         fd = vfs_open("/proc/mounts", O_RDONLY);
         if (fd < 0) {
             fprintf(stderr, "df: cannot open /proc/mounts\n");
             return 1;
         }
 
-        n = vfs_read_fd(fd, buf, sizeof(buf) - 1);
+        n = 0;
+        while (n < (int)sizeof(buf) - 1) {
+            r = vfs_read_fd(fd, buf + n, sizeof(buf) - 1 - (uint32_t)n);
+            if (r <= 0) break;
+            n += r;
+        }
         vfs_close_fd(fd);
 
         if (n < 0) {
@@ -215,8 +221,13 @@ int cmd_df(int argc, char **argv)
         break;
     }
 
-    printf("%-15s %10s %10s %10s %6s %s\n",
-           "Filesystem", blk_hdr, "Used", "Available", "Use%", "Mounted on");
+    if (unit_mode == UNIT_MB || unit_mode == UNIT_GB) {
+        printf("%-15s %11s %11s %11s %5s %s\n",
+               "Filesystem", blk_hdr, "Used", "Available", "Use%", "Mounted on");
+    } else {
+        printf("%-15s %10s %10s %10s %6s %s\n",
+               "Filesystem", blk_hdr, "Used", "Available", "Use%", "Mounted on");
+    }
 
     if (path_arg) {
         if (print_statvfs_path(path_arg, path_arg, unit_mode) == 0) {

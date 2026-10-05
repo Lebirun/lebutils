@@ -99,6 +99,9 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_LFORMAT_EXT4
     {"lformat.ext4", cmd_lformat_ext4},
 #endif
+#ifdef CONFIG_CMD_LFORMAT_FAT
+    {"lformat.fat", cmd_lformat_fat},
+#endif
 #ifdef CONFIG_CMD_PASSWD
     {"passwd", cmd_passwd},
 #endif

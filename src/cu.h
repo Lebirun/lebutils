@@ -101,6 +101,9 @@ int cmd_ldiskutil(int argc, char **argv);
 #ifdef CONFIG_CMD_LFORMAT_EXT4
 int cmd_lformat_ext4(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_LFORMAT_FAT
+int cmd_lformat_fat(int argc, char **argv);
+#endif
 #ifdef CONFIG_CMD_PASSWD
 int cmd_passwd(int argc, char **argv);
 #endif
