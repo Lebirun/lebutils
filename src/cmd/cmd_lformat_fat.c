@@ -24,7 +24,7 @@ static int write_at(int fd, uint64_t offset, const void *data, uint32_t size) {
     uint32_t done = 0;
     int ret;
 
-    if (lseek(fd, (off_t)offset, SEEK_SET) < 0) {
+    if (lseek(fd, (off_t)offset, SEEK_SET) != (off_t)offset) {
         fprintf(stderr, "lformat.fat: seek failed\n");
         return -1;
     }
@@ -42,10 +42,11 @@ static int write_at(int fd, uint64_t offset, const void *data, uint32_t size) {
 static int write_zero(int fd, uint64_t offset, uint64_t size) {
     static uint8_t zero[SECT_SIZE];
     uint64_t done = 0;
+    uint32_t chunk;
 
     memset(zero, 0, sizeof(zero));
     while (done < size) {
-        uint32_t chunk = sizeof(zero);
+        chunk = sizeof(zero);
         if (chunk > size - done) chunk = (uint32_t)(size - done);
         if (write_at(fd, offset + done, zero, chunk) != 0) return -1;
         done += chunk;
@@ -56,15 +57,35 @@ static int write_zero(int fd, uint64_t offset, uint64_t size) {
 static void sfn_label(const char *label, uint8_t out[11]) {
     uint64_t i;
     uint64_t ni = 0;
+    char c;
 
     memset(out, ' ', 11);
     if (!label) return;
     for (i = 0; label[i] && ni < 11; i++) {
-        char c = label[i];
+        c = label[i];
         if (c == '.') continue;
         if (c >= 'a' && c <= 'z') c -= 32;
         out[ni++] = (uint8_t)c;
     }
+}
+
+static uint64_t fat_size(uint64_t sectors, uint64_t reserved,
+                         uint64_t entries, uint64_t cluster_sectors) {
+    uint64_t low = 1;
+    uint64_t high;
+    uint64_t mid;
+    uint64_t clusters;
+
+    high = ((sectors - reserved) / cluster_sectors + 2 + entries - 1) / entries;
+    while (low < high) {
+        mid = low + (high - low) / 2;
+        clusters = (sectors - reserved - 2 * mid) / cluster_sectors;
+        if (mid * entries >= clusters + 2)
+            high = mid;
+        else
+            low = mid + 1;
+    }
+    return low;
 }
 
 int cmd_lformat_fat(int argc, char **argv) {
@@ -74,9 +95,10 @@ int cmd_lformat_fat(int argc, char **argv) {
     uint64_t dev_type;
     uint64_t total_sectors;
     uint64_t clusters;
+    uint64_t cluster_sectors = 8;
     uint64_t fat_sectors;
     uint64_t data_start;
-    uint64_t root_sectors;
+    uint64_t reserved;
     uint64_t root_lba;
     uint64_t free_clusters;
     uint8_t boot[SECT_SIZE];
@@ -111,16 +133,38 @@ int cmd_lformat_fat(int argc, char **argv) {
     vfs_close_fd(rfd);
 
     total_sectors = dev_size / SECT_SIZE;
-    clusters = total_sectors / 8;
-    is_fat32 = clusters >= 65525;
-    if (is_fat32) {
-        uint64_t est = (clusters * 4 + SECT_SIZE - 1) / SECT_SIZE;
-        uint64_t fc = (total_sectors - 32 - 2 * est) / 8;
-        if (fc < 65525) is_fat32 = 0;
+    if (total_sectors > UINT32_MAX) {
+        printf("lformat.fat: device exceeds FAT sector count range\n");
+        return 1;
     }
-    if (!is_fat32 && clusters < 4085) {
+    if (total_sectors < 36 + 2 + 4085 * 8) {
         printf("lformat.fat: device too small (%llu sectors)\n",
                (unsigned long long)total_sectors);
+        return 1;
+    }
+    for (;;) {
+        fat_sectors = fat_size(total_sectors, 32, SECT_SIZE / 4,
+                               cluster_sectors);
+        data_start = 32 + 2 * fat_sectors;
+        clusters = (total_sectors - data_start) / cluster_sectors;
+        if (clusters <= 0x0FFFFFEE) break;
+        cluster_sectors *= 2;
+    }
+    is_fat32 = clusters >= 65525;
+    reserved = is_fat32 ? 32 : 4;
+    if (!is_fat32) {
+        fat_sectors = fat_size(total_sectors, 36, SECT_SIZE / 2,
+                               cluster_sectors);
+        data_start = 36 + 2 * fat_sectors;
+        clusters = (total_sectors - data_start) / 8;
+        if (clusters >= 65525) {
+            fat_sectors = (total_sectors - 36 - 65525 * 8) / 2 + 1;
+            data_start = 36 + 2 * fat_sectors;
+            clusters = (total_sectors - data_start) / 8;
+        }
+    }
+    if (!is_fat32 && (clusters < 4085 || fat_sectors > UINT16_MAX)) {
+        printf("lformat.fat: device has no valid FAT layout\n");
         return 1;
     }
 
@@ -136,9 +180,8 @@ int cmd_lformat_fat(int argc, char **argv) {
     boot[2] = 0x90;
     memcpy(boot + 3, "LEBIRUN ", 8);
     put16(boot + 11, SECT_SIZE);
-    boot[13] = 8;
+    boot[13] = (uint8_t)cluster_sectors;
     if (is_fat32) {
-        uint64_t est;
         put16(boot + 14, 32);
         boot[16] = 2;
         put16(boot + 17, 0);
@@ -146,10 +189,6 @@ int cmd_lformat_fat(int argc, char **argv) {
         boot[21] = 0xF8;
         put16(boot + 22, 0);
         put32(boot + 32, (uint32_t)total_sectors);
-        est = (clusters * 4 + SECT_SIZE - 1) / SECT_SIZE;
-        fat_sectors = est;
-        clusters = (total_sectors - 32 - 2 * fat_sectors) / 8;
-        fat_sectors = (clusters * 4 + SECT_SIZE - 1) / SECT_SIZE;
         put32(boot + 36, (uint32_t)fat_sectors);
         put16(boot + 40, 0);
         put16(boot + 42, 0);
@@ -171,8 +210,6 @@ int cmd_lformat_fat(int argc, char **argv) {
         else
             put32(boot + 32, (uint32_t)total_sectors);
         boot[21] = 0xF8;
-        clusters = (total_sectors - 4 - 32) / 8;
-        fat_sectors = (clusters * 2 + SECT_SIZE - 1) / SECT_SIZE;
         put16(boot + 22, (uint16_t)fat_sectors);
         boot[36] = 0x80;
         boot[38] = 0x29;
@@ -180,12 +217,11 @@ int cmd_lformat_fat(int argc, char **argv) {
         sfn_label(label, sfn);
         memcpy(boot + 43, sfn, 11);
         memcpy(boot + 54, "FAT16   ", 8);
-        root_sectors = 32;
-        data_start = 4 + 2 * fat_sectors + root_sectors;
-        clusters = (total_sectors - data_start) / 8;
     }
     boot[510] = 0x55;
     boot[511] = 0xAA;
+    if (write_zero(fd, reserved * SECT_SIZE,
+                   2 * fat_sectors * SECT_SIZE) != 0) goto out;
     if (write_at(fd, 0, boot, sizeof(boot)) != 0) goto out;
 
     if (is_fat32) {
@@ -204,12 +240,11 @@ int cmd_lformat_fat(int argc, char **argv) {
         put32(boot, 0x0FFFFFF8);
         put32(boot + 4, 0x0FFFFFFF);
         put32(boot + 8, 0x0FFFFFFF);
-        data_start = 32 + 2 * fat_sectors;
         if (write_at(fd, 32 * SECT_SIZE, boot, 12) != 0) goto out;
         if (write_at(fd, (32 + fat_sectors) * SECT_SIZE, boot, 12) != 0)
             goto out;
         if (write_zero(fd, (uint64_t)data_start * SECT_SIZE,
-                       8 * SECT_SIZE) != 0) goto out;
+                       cluster_sectors * SECT_SIZE) != 0) goto out;
         if (sfn[0] != ' ') {
             memset(entry, 0, sizeof(entry));
             memcpy(entry, sfn, 11);
@@ -238,7 +273,10 @@ int cmd_lformat_fat(int argc, char **argv) {
         }
     }
 
-    vfs_close_fd(fd);
+    if (vfs_close_fd(fd) != 0) {
+        fprintf(stderr, "lformat.fat: close failed\n");
+        return 1;
+    }
     printf("lformat.fat: formatted %s as %s (%llu sectors)\n", devpath,
            is_fat32 ? "FAT32" : "FAT16",
            (unsigned long long)total_sectors);
