@@ -44,6 +44,7 @@ subcategory "Software" {
         item type=bool name="umount" default=enable id=umount alias="COMMAND_UMOUNT" help="Enable the 'umount' command - umounts filesystems"
         item type=bool name="ldiskutil" default=enable id=ldiskutil alias="COMMAND_LDISKUTIL" help="Enable the 'ldiskutil' command - disk partitioning utility"
         item type=bool name="lformat.ext4" default=enable id=lformat_ext4 alias="COMMAND_LFORMAT_EXT4" help="Enable the 'lformat.ext4' command - format a block device or partition with ext4 filesystem"
+        item type=bool name="lformat.fat" default=enable id=lformat_fat alias="COMMAND_LFORMAT_FAT" help="Enable the 'lformat.fat' command - format a block device or partition with FAT16/FAT32 filesystem"
         item type=bool name="lformat.exfat" default=enable id=lformat_exfat alias="COMMAND_LFORMAT_EXFAT" help="Enable the 'lformat.exfat' command - format a block device or partition with exFAT filesystem"
         item type=bool name="ps" default=enable id=ps alias="COMMAND_PS" help="Enable the 'ps' command - lists running processes"
         item type=bool name="kill" default=enable id=kill alias="COMMAND_KILL" help="Enable the 'kill' command - sends signals to running processes"
