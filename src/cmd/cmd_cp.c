@@ -4,6 +4,8 @@
 #include "cu.h"
 
 #define O_RDONLY 0
+#define O_WRONLY 1
+#define O_TRUNC 01000
 #define CP_BUFSZ 4096
 
 int cmd_cp(int argc, char **argv) {
@@ -57,7 +59,7 @@ int cmd_cp(int argc, char **argv) {
         return 1;
     }
 
-    dfd = vfs_open(dst, 1);
+    dfd = vfs_open(dst, O_WRONLY | O_TRUNC);
     if (dfd < 0) {
         fprintf(stderr, "cp: cannot open '%s' for writing\n", dst);
         vfs_close_fd(sfd);

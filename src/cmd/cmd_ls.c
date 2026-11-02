@@ -6,6 +6,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <errno.h>
 #include "cu.h"
 
 #define O_RDONLY 0
@@ -124,7 +125,7 @@ static void ls_sort(ls_entry_t *list, size_t count) {
 }
 
 int cmd_ls(int argc, char **argv) {
-    int show_all, long_format, human, i;
+    int show_all, long_format, human, i, r;
     const char *arg, *p;
     char path[256];
     char full[512];
@@ -206,7 +207,9 @@ int cmd_ls(int argc, char **argv) {
     }
     entry_type = 0;
     for (idx = 0; idx < 100000; idx++) {
-        if (vfs_readdir(fd, name, &entry_type, idx) < 0) break;
+        r = vfs_readdir2(fd, name, sizeof(name), &entry_type, idx, NULL);
+        if (r == -ERANGE) continue;
+        if (r < 0) break;
         if (!show_all && name[0] == '.') continue;
         if (ls_add(&list, &count, &cap, path, name) < 0) break;
     }

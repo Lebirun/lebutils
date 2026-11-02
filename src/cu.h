@@ -104,6 +104,9 @@ int cmd_lformat_ext4(int argc, char **argv);
 #ifdef CONFIG_CMD_LFORMAT_FAT
 int cmd_lformat_fat(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_LFORMAT_EXFAT
+int cmd_lformat_exfat(int argc, char **argv);
+#endif
 #ifdef CONFIG_CMD_PASSWD
 int cmd_passwd(int argc, char **argv);
 #endif

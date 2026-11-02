@@ -130,6 +130,11 @@ static const uint8_t LD_GPT_EFI_SYSTEM[16] = {
     0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B
 };
 
+static const uint8_t LD_GPT_MS_BASIC[16] = {
+    0xA2, 0xA0, 0xD0, 0xEB, 0xE5, 0xB9, 0x33, 0x44,
+    0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7
+};
+
 static const char *ld_action_labels[LD_ACT_COUNT] = {
     " New ", " Delete ", " Type ", " Resize ", " Write ", " Wipe ", " DOS ", " GPT ", " Help ", " Quit "
 };
@@ -218,7 +223,7 @@ static const char *ld_mbr_type_name(uint8_t t) {
     case 0x04: return "FAT16 <32M";
     case 0x05: return "Extended";
     case 0x06: return "FAT16";
-    case 0x07: return "NTFS/HPFS";
+    case 0x07: return "exFAT/NTFS";
     case 0x0B: return "FAT32";
     case 0x0C: return "FAT32 LBA";
     case 0x0E: return "FAT16 LBA";
@@ -236,6 +241,7 @@ static const char *ld_gpt_type_name(const uint8_t *guid) {
     if (ld_guid_equal(guid, LD_GPT_LINUX_FS)) return "Linux filesystem";
     if (ld_guid_equal(guid, LD_GPT_LINUX_SWAP)) return "Linux swap";
     if (ld_guid_equal(guid, LD_GPT_EFI_SYSTEM)) return "EFI System";
+    if (ld_guid_equal(guid, LD_GPT_MS_BASIC)) return "Microsoft basic data";
     return "Unknown";
 }
 
@@ -250,7 +256,7 @@ static const ld_mbr_type_entry_t ld_mbr_types[] = {
     { 0x8E, "Linux LVM" },
     { 0x0B, "FAT32" },
     { 0x0C, "FAT32 LBA" },
-    { 0x07, "NTFS/HPFS" },
+    { 0x07, "exFAT/NTFS" },
     { 0x01, "FAT12" },
     { 0x04, "FAT16 <32M" },
     { 0x06, "FAT16" },
@@ -272,6 +278,7 @@ static const ld_gpt_type_entry_t ld_gpt_types[] = {
     { "Linux filesystem", LD_GPT_LINUX_FS },
     { "Linux swap",       LD_GPT_LINUX_SWAP },
     { "EFI System",       LD_GPT_EFI_SYSTEM },
+    { "Microsoft basic data", LD_GPT_MS_BASIC },
 };
 
 #define LD_GPT_TYPE_COUNT (int)(sizeof(ld_gpt_types) / sizeof(ld_gpt_types[0]))

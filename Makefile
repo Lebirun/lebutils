@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount dhcp dns lebpkg ldiskutil lformat.ext4 lformat.fat useradd userdel insmod rmmod modinfo modprobe ping dmesg ip
+SBIN_APPS = mount umount dhcp dns lebpkg ldiskutil lformat.ext4 lformat.fat lformat.exfat useradd userdel insmod rmmod modinfo modprobe ping dmesg ip
 
 SRCDIR = src
 
@@ -111,6 +111,9 @@ CONFIG_DEFINES += -DCONFIG_CMD_LFORMAT_EXT4
 endif
 ifeq ($(COMMAND_LFORMAT_FAT),y)
 CONFIG_DEFINES += -DCONFIG_CMD_LFORMAT_FAT
+endif
+ifeq ($(COMMAND_LFORMAT_EXFAT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_LFORMAT_EXFAT
 endif
 ifeq ($(COMMAND_PASSWD),y)
 CONFIG_DEFINES += -DCONFIG_CMD_PASSWD
@@ -292,6 +295,9 @@ LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_ext4.c
 endif
 ifeq ($(COMMAND_LFORMAT_FAT),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_fat.c
+endif
+ifeq ($(COMMAND_LFORMAT_EXFAT),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_lformat_exfat.c
 endif
 ifeq ($(COMMAND_PASSWD),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_passwd.c
@@ -475,6 +481,9 @@ BIN_TARGETS += lformat.ext4
 endif
 ifeq ($(COMMAND_LFORMAT_FAT),y)
 BIN_TARGETS += lformat.fat
+endif
+ifeq ($(COMMAND_LFORMAT_EXFAT),y)
+BIN_TARGETS += lformat.exfat
 endif
 ifeq ($(COMMAND_PASSWD),y)
 BIN_TARGETS += passwd

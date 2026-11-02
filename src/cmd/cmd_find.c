@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fnmatch.h>
+#include <errno.h>
 #include "cu.h"
 
 #define O_RDONLY 0
@@ -71,8 +72,9 @@ static int find_walk(char **path, unsigned int *len, unsigned int *cap) {
     int fd;
     unsigned int idx;
     unsigned int etype, base, nlen;
-    char name[64];
+    char name[256];
     int rc;
+    int r;
 
     fd = vfs_open(*path, O_RDONLY | O_DIRECTORY);
     if (fd < 0) return 0;
@@ -80,7 +82,9 @@ static int find_walk(char **path, unsigned int *len, unsigned int *cap) {
     base = *len;
     for (idx = 0; ; idx++) {
         etype = 0;
-        if (vfs_readdir(fd, name, &etype, idx) < 0) break;
+        r = vfs_readdir2(fd, name, sizeof(name), &etype, idx, NULL);
+        if (r == -ERANGE) continue;
+        if (r < 0) break;
         if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
         nlen = (unsigned int)strlen(name);
         if (find_grow(path, cap, base + 1 + nlen + 1) < 0) {
