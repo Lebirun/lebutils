@@ -60,7 +60,10 @@ static void sfn_label(const char *label, uint8_t out[11]) {
     char c;
 
     memset(out, ' ', 11);
-    if (!label) return;
+    if (!label || !label[0]) {
+        memcpy(out, "NO NAME", 7);
+        return;
+    }
     for (i = 0; label[i] && ni < 11; i++) {
         c = label[i];
         if (c == '.') continue;
@@ -245,7 +248,7 @@ int cmd_lformat_fat(int argc, char **argv) {
             goto out;
         if (write_zero(fd, (uint64_t)data_start * SECT_SIZE,
                        cluster_sectors * SECT_SIZE) != 0) goto out;
-        if (sfn[0] != ' ') {
+        if (label[0]) {
             memset(entry, 0, sizeof(entry));
             memcpy(entry, sfn, 11);
             entry[11] = 0x08;
@@ -264,7 +267,7 @@ int cmd_lformat_fat(int argc, char **argv) {
         root_lba = 4 + 2 * fat_sectors;
         if (write_zero(fd, root_lba * SECT_SIZE,
                        32 * SECT_SIZE) != 0) goto out;
-        if (sfn[0] != ' ') {
+        if (label[0]) {
             memset(entry, 0, sizeof(entry));
             memcpy(entry, sfn, 11);
             entry[11] = 0x08;
