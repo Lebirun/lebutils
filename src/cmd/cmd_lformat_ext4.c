@@ -240,6 +240,19 @@ static int lf_write_block(int fd, uint32_t block, const uint8_t *data) {
                              BLOCK_SIZE);
 }
 
+static int lf_has_super(uint32_t group) {
+    uint64_t n;
+    uint32_t p;
+
+    if (group <= 1) return 1;
+    if (!(group & 1)) return 0;
+    for (p = 3; p <= 7; p += 2) {
+        for (n = p; n < group; n *= p);
+        if (n == group) return 1;
+    }
+    return 0;
+}
+
 static void lf_gen_uuid(uint8_t *uuid) {
     int rfd;
     int got;
@@ -289,6 +302,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     uint32_t first_data;
     uint32_t grp_blocks;
     uint32_t used_blocks;
+    uint32_t meta_blocks;
     uint32_t bit;
     uint32_t byte_idx;
     int i;
@@ -368,6 +382,16 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
     inode_table_blocks = (inodes_per_group * INODE_SIZE + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
+    if (groups > 1) {
+        grp_blocks = total_blocks - (groups - 1) * blocks_per_group;
+        meta_blocks = lf_has_super(groups - 1) ? 1 + gdt_blocks : 0;
+        if (grp_blocks < meta_blocks + 2 + inode_table_blocks + 1) {
+            groups--;
+            total_blocks = groups * blocks_per_group;
+            gdt_blocks = (groups * 32 + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        }
+    }
+
     overhead_per_group = 1 + gdt_blocks + 1 + 1 + inode_table_blocks;
 
     if (groups == 1 && total_blocks <= overhead_per_group + 2) {
@@ -377,7 +401,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
     }
 
     total_inodes = inodes_per_group * groups;
-    free_inodes = total_inodes - EXT4_GOOD_OLD_FIRST;
+    free_inodes = total_inodes - (EXT4_GOOD_OLD_FIRST - 1);
     free_blocks = 0;
 
     printf("Creating ext4 filesystem on %s\n", devpath);
@@ -452,7 +476,8 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
     for (g = 0; g < groups; g++) {
         blk = g * blocks_per_group;
-        bb_block = blk + 1 + gdt_blocks;
+        meta_blocks = lf_has_super(g) ? 1 + gdt_blocks : 0;
+        bb_block = blk + meta_blocks;
         ib_block = bb_block + 1;
         it_block = ib_block + 1;
 
@@ -460,7 +485,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
         if (blk + grp_blocks > total_blocks)
             grp_blocks = total_blocks - blk;
 
-        used_blocks = 1 + gdt_blocks + 1 + 1 + inode_table_blocks;
+        used_blocks = meta_blocks + 1 + 1 + inode_table_blocks;
         if (used_blocks > grp_blocks)
             used_blocks = grp_blocks;
 
@@ -470,7 +495,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
         gd->bg_inode_table_lo = it_block;
         gd->bg_free_blocks_count_lo = (uint16_t)(grp_blocks - used_blocks);
         if (g == 0) {
-            gd->bg_free_inodes_count_lo = (uint16_t)(inodes_per_group - EXT4_GOOD_OLD_FIRST);
+            gd->bg_free_inodes_count_lo = (uint16_t)(inodes_per_group - (EXT4_GOOD_OLD_FIRST - 1));
             gd->bg_used_dirs_count_lo = 1;
         } else {
             gd->bg_free_inodes_count_lo = (uint16_t)inodes_per_group;
@@ -501,7 +526,7 @@ int cmd_lformat_ext4(int argc, char **argv) {
 
         memset(block_buf, 0, BLOCK_SIZE);
         if (g == 0) {
-            for (bit = 0; bit < EXT4_GOOD_OLD_FIRST; bit++) {
+            for (bit = 0; bit < EXT4_GOOD_OLD_FIRST - 1; bit++) {
                 byte_idx = bit / 8;
                 block_buf[byte_idx] |= (1 << (bit & 7));
             }
@@ -605,6 +630,21 @@ int cmd_lformat_ext4(int argc, char **argv) {
     if (lf_read_exact_at(fd, (off_t)BLOCK_SIZE, &gd0, 32) < 0) goto out;
     gd0.bg_free_blocks_count_lo = (uint16_t)(gd0.bg_free_blocks_count_lo - 1);
     if (lf_write_exact_at(fd, (off_t)BLOCK_SIZE, &gd0, 32) < 0) goto out;
+
+    for (g = 1; g < groups; g++) {
+        if (!lf_has_super(g)) continue;
+        blk = g * blocks_per_group;
+        sb->s_block_group_nr = (uint16_t)g;
+        memset(block_buf, 0, BLOCK_SIZE);
+        memcpy(block_buf, sb, sizeof(*sb));
+        if (lf_write_block(fd, blk, block_buf) < 0) goto out;
+        for (bit = 0; bit < gdt_blocks; bit++) {
+            if (lf_read_exact_at(fd, (off_t)(1 + bit) * BLOCK_SIZE, block_buf,
+                                 BLOCK_SIZE) < 0) goto out;
+            if (lf_write_block(fd, blk + 1 + bit, block_buf) < 0) goto out;
+        }
+    }
+    sb->s_block_group_nr = 0;
 
     if (fsync(fd) != 0) {
         fprintf(stderr, "lformat.ext4: fsync failed\n");
