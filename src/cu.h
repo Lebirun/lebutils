@@ -200,6 +200,24 @@ int cmd_find(int argc, char **argv);
 #ifdef CONFIG_CMD_IP
 int cmd_ip(int argc, char **argv);
 #endif
+#ifdef CONFIG_CMD_SORT
+int cmd_sort(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_TR
+int cmd_tr(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_WC
+int cmd_wc(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_CHROOT
+int cmd_chroot(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_UPTIME
+int cmd_uptime(int argc, char **argv);
+#endif
+#ifdef CONFIG_CMD_SU
+int cmd_su(int argc, char **argv);
+#endif
 
 const char *cu_basename(const char *path);
 int cu_path_abs(const char *in, char *out, unsigned int outsz);

@@ -31,7 +31,7 @@ LD_SCRIPT = $(LIBC)/user.ld
 SYSROOT_BIN = ../../root/bin
 SYSROOT_SBIN = ../../root/sbin
 
-SBIN_APPS = mount umount dhcp dns lebpkg ldiskutil lformat.ext4 lformat.fat lformat.exfat useradd userdel insmod rmmod modinfo modprobe ping dmesg ip
+SBIN_APPS = mount umount chroot dhcp dns lebpkg ldiskutil lformat.ext4 lformat.fat lformat.exfat useradd userdel insmod rmmod modinfo modprobe ping dmesg ip
 
 SRCDIR = src
 
@@ -207,6 +207,24 @@ CONFIG_DEFINES += -DCONFIG_CMD_FIND
 endif
 ifeq ($(COMMAND_IP),y)
 CONFIG_DEFINES += -DCONFIG_CMD_IP
+endif
+ifeq ($(COMMAND_SORT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_SORT
+endif
+ifeq ($(COMMAND_TR),y)
+CONFIG_DEFINES += -DCONFIG_CMD_TR
+endif
+ifeq ($(COMMAND_WC),y)
+CONFIG_DEFINES += -DCONFIG_CMD_WC
+endif
+ifeq ($(COMMAND_CHROOT),y)
+CONFIG_DEFINES += -DCONFIG_CMD_CHROOT
+endif
+ifeq ($(COMMAND_UPTIME),y)
+CONFIG_DEFINES += -DCONFIG_CMD_UPTIME
+endif
+ifeq ($(COMMAND_SU),y)
+CONFIG_DEFINES += -DCONFIG_CMD_SU
 endif
 ifeq ($(COMMAND_IPV67CLI),y)
 CONFIG_DEFINES += -DCONFIG_CMD_IPV67CLI
@@ -391,6 +409,24 @@ LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_find.c
 endif
 ifeq ($(COMMAND_IP),y)
 LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_ip.c
+endif
+ifeq ($(COMMAND_SORT),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_sort.c
+endif
+ifeq ($(COMMAND_TR),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_tr.c
+endif
+ifeq ($(COMMAND_WC),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_wc.c
+endif
+ifeq ($(COMMAND_CHROOT),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_chroot.c
+endif
+ifeq ($(COMMAND_UPTIME),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_uptime.c
+endif
+ifeq ($(COMMAND_SU),y)
+LEBUTILS_SRCS += $(SRCDIR)/cmd/cmd_su.c
 endif
 
 IPV67_CRYPTO_SRC = $(SRCDIR)/cmd/ipv67/ipv67_crypto.c
@@ -578,6 +614,24 @@ endif
 ifeq ($(COMMAND_IP),y)
 BIN_TARGETS += ip
 endif
+ifeq ($(COMMAND_SORT),y)
+BIN_TARGETS += sort
+endif
+ifeq ($(COMMAND_TR),y)
+BIN_TARGETS += tr
+endif
+ifeq ($(COMMAND_WC),y)
+BIN_TARGETS += wc
+endif
+ifeq ($(COMMAND_CHROOT),y)
+BIN_TARGETS += chroot
+endif
+ifeq ($(COMMAND_UPTIME),y)
+BIN_TARGETS += uptime
+endif
+ifeq ($(COMMAND_SU),y)
+BIN_TARGETS += su
+endif
 
 BINDIR = bin
 PROGRAMS := $(addprefix $(BINDIR)/,$(addsuffix .bin,$(filter-out free,$(BIN_TARGETS))))
@@ -662,10 +716,11 @@ stage: all
 	$(Q)mkdir -p $(SYSROOT_SBIN)
 	$(Q)cp $(BINDIR)/lebu.bin $(SYSROOT_BIN)/lebu
 	$(MSG_STRIP)$(STRIP) -s $(SYSROOT_BIN)/lebu
-	@for app in $(filter-out lebu sudo $(SBIN_APPS),$(BIN_TARGETS)); do \
+	@for app in $(filter-out lebu sudo su $(SBIN_APPS),$(BIN_TARGETS)); do \
 		ln -sf lebu $(SYSROOT_BIN)/$$app; \
 	done
 	@[ -f $(BINDIR)/sudo.bin ] && { rm -f $(SYSROOT_BIN)/sudo; cp $(BINDIR)/sudo.bin $(SYSROOT_BIN)/sudo; $(STRIP) -s $(SYSROOT_BIN)/sudo; chmod 4755 $(SYSROOT_BIN)/sudo; } || true
+	@[ -f $(BINDIR)/su.bin ] && { rm -f $(SYSROOT_BIN)/su; cp $(BINDIR)/su.bin $(SYSROOT_BIN)/su; $(STRIP) -s $(SYSROOT_BIN)/su; chmod 4755 $(SYSROOT_BIN)/su; } || true
 	@[ -f $(BINDIR)/echo.bin ] && { rm -f $(SYSROOT_BIN)/echo; cp $(BINDIR)/echo.bin $(SYSROOT_BIN)/echo; $(STRIP) -s $(SYSROOT_BIN)/echo; } || true
 	@for app in $(SBIN_APPS); do \
 		ln -sf ../bin/lebu $(SYSROOT_SBIN)/$$app; \

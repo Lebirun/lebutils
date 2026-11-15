@@ -29,6 +29,9 @@ subcategory "Software" {
         item type=bool name="file" default=enable id=file alias="COMMAND_FILE" help="Enable the 'file' command - determines file type by magic number"
         item type=bool name="less" default=enable id=less alias="COMMAND_LESS" help="Enable the 'less' command - interactively pages through text"
         item type=bool name="diff" default=enable id=diff alias="COMMAND_DIFF" help="Enable the 'diff' command - compares text files"
+        item type=bool name="sort" default=enable id=sort alias="COMMAND_SORT" help="Enable the 'sort' command - sorts lines of text"
+        item type=bool name="tr" default=enable id=tr alias="COMMAND_TR" help="Enable the 'tr' command - translates, squeezes or deletes characters"
+        item type=bool name="wc" default=enable id=wc alias="COMMAND_WC" help="Enable the 'wc' command - counts lines, words and bytes"
         item type=bool name="truncate" default=enable id=truncate alias="COMMAND_TRUNCATE" help="Enable the 'truncate' command - changes file sizes"
         item type=bool name="hostname" default=enable id=hostname alias="COMMAND_HOSTNAME" help="Enable the 'hostname' command - prints the system hostname"
         item type=bool name="whoami" default=enable id=whoami alias="COMMAND_WHOAMI" help="Enable the 'whoami' command - prints the current user name"
@@ -49,9 +52,12 @@ subcategory "Software" {
         item type=bool name="ps" default=enable id=ps alias="COMMAND_PS" help="Enable the 'ps' command - lists running processes"
         item type=bool name="kill" default=enable id=kill alias="COMMAND_KILL" help="Enable the 'kill' command - sends signals to running processes"
         item type=bool name="dmesg" default=enable id=dmesg alias="COMMAND_DMESG" help="Enable the 'dmesg' command - prints kernel ring buffer messages"
+        item type=bool name="uptime" default=enable id=uptime alias="COMMAND_UPTIME" help="Enable the 'uptime' command - shows how long the system has been running"
+        item type=bool name="chroot" default=enable id=chroot alias="COMMAND_CHROOT" help="Enable the 'chroot' command - runs a command with a different root directory"
     }
     subcategory "User Management" {
         item type=bool name="sudo" default=enable id=sudo alias="COMMAND_SUDO" help="Enable the 'sudo' command - executes commands as root after authentication"
+        item type=bool name="su" default=enable id=su alias="COMMAND_SU" help="Enable the 'su' command - runs a shell as another user after authentication"
         item type=bool name="passwd" default=enable id=passwd alias="COMMAND_PASSWD" help="Enable the 'passwd' command - change user passwords"
         item type=bool name="useradd" default=enable id=useradd alias="COMMAND_USERADD" help="Enable the 'useradd' command - create new user accounts (requires root)"
         item type=bool name="userdel" default=enable id=userdel alias="COMMAND_USERDEL" help="Enable the 'userdel' command - delete user accounts (requires root)"

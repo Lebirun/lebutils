@@ -198,6 +198,24 @@ static const struct cu_cmd cu_cmds[] = {
 #ifdef CONFIG_CMD_IP
     {"ip", cmd_ip},
 #endif
+#ifdef CONFIG_CMD_SORT
+    {"sort", cmd_sort},
+#endif
+#ifdef CONFIG_CMD_TR
+    {"tr", cmd_tr},
+#endif
+#ifdef CONFIG_CMD_WC
+    {"wc", cmd_wc},
+#endif
+#ifdef CONFIG_CMD_CHROOT
+    {"chroot", cmd_chroot},
+#endif
+#ifdef CONFIG_CMD_UPTIME
+    {"uptime", cmd_uptime},
+#endif
+#ifdef CONFIG_CMD_SU
+    {"su", cmd_su},
+#endif
     {NULL, NULL}
 };
 
